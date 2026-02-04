@@ -26,7 +26,7 @@ Tasks are ordered to enable incremental development with early validation of cor
     - Create initial migration
     - _Requirements: 7.1, 7.4_
 
-  - [ ] 1.3 Create Pydantic schemas for API request/response models
+  - [x] 1.3 Create Pydantic schemas for API request/response models
     - Define all request/response models from design document
     - Create shared types (Citation, Message, QueryType, etc.)
     - _Requirements: 6.5_
