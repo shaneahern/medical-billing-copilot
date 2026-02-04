@@ -269,23 +269,23 @@ Tasks are ordered to enable incremental development with early validation of cor
     - Test response grounding in retrieved documents
     - **Validates: Requirements 10.1-10.6, 13.1-13.6**
 
-- [ ] 13. Payer policy database
-  - [ ] 13.1 Ingest Medicare LCDs and NCDs
+- [x] 13. Payer policy database
+  - [x] 13.1 Ingest Medicare LCDs and NCDs
     - Run ingestion for all MAC regions
     - Verify coverage of common procedures
     - _Requirements: 14.1_
 
-  - [ ] 13.2 Ingest commercial payer policies
+  - [x] 13.2 Ingest commercial payer policies
     - Ingest policies for top 10 national payers
     - Verify policy freshness within 7 days
     - _Requirements: 14.2, 14.3_
 
-  - [ ] 13.3 Implement policy freshness tracking
+  - [x] 13.3 Implement policy freshness tracking
     - Display last-updated date in responses
     - Indicate unsupported payers
     - _Requirements: 14.4, 14.5_
 
-- [ ] 14. Final checkpoint - Phase 2 complete
+- [x] 14. Final checkpoint - Phase 2 complete
   - Ensure all tests pass, ask the user if questions arise.
   - Verify end-to-end RAG flow with live policy data
 

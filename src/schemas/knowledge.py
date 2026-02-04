@@ -57,6 +57,16 @@ class CoverageResult(BaseModel):
     confidence: float = Field(
         ..., ge=0.0, le=1.0, description="Confidence score"
     )
+    # Freshness tracking (Requirements 14.4, 14.5)
+    last_updated: Optional[datetime] = Field(
+        None, description="Last update date for policy data"
+    )
+    payer_supported: bool = Field(
+        True, description="Whether the payer is supported in the database"
+    )
+    payer_support_message: Optional[str] = Field(
+        None, description="Message if payer is not supported"
+    )
 
 
 # LCD-related schemas
@@ -92,6 +102,10 @@ class LCDResult(BaseModel):
         default_factory=list, description="Documentation requirements"
     )
     source_url: str = Field(..., description="Source URL")
+    # Freshness tracking (Requirement 14.4)
+    last_updated: Optional[datetime] = Field(
+        None, description="Last update date for policy data"
+    )
 
 
 
@@ -152,6 +166,16 @@ class PriorAuthResult(BaseModel):
     contact_info: Optional[str] = Field(None, description="Payer contact information")
     sources: list[Citation] = Field(
         default_factory=list, description="Source citations"
+    )
+    # Freshness tracking (Requirements 14.4, 14.5)
+    last_updated: Optional[datetime] = Field(
+        None, description="Last update date for policy data"
+    )
+    payer_supported: bool = Field(
+        True, description="Whether the payer is supported in the database"
+    )
+    payer_support_message: Optional[str] = Field(
+        None, description="Message if payer is not supported"
     )
 
 

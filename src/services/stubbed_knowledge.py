@@ -2,6 +2,8 @@
 
 This module provides a stubbed implementation of the KnowledgeService
 interface using static JSON data files for MVP testing.
+
+Requirements: 6.2, 6.4, 9.6, 14.4, 14.5
 """
 
 import json
@@ -29,13 +31,29 @@ from src.schemas.knowledge import (
 from src.services.knowledge import KnowledgeService
 
 
+# Supported payers list for validation (Requirements 14.5)
+SUPPORTED_PAYERS = [
+    "medicare",
+    "aetna",
+    "unitedhealthcare",
+    "cigna",
+    "humana",
+    "anthem",
+    "kaiser",
+    "bcbs",
+    "centene",
+    "molina",
+    "wellcare",
+]
+
+
 class StubbedKnowledgeService(KnowledgeService):
     """Stubbed implementation of KnowledgeService using JSON files.
     
     This implementation loads policy data from JSON stub files and
     provides all KnowledgeService methods for MVP testing.
     
-    Requirements: 6.2, 6.4, 9.6
+    Requirements: 6.2, 6.4, 9.6, 14.4, 14.5
     """
 
     def __init__(self, data_path: str = "data/stub"):
@@ -107,8 +125,14 @@ class StubbedKnowledgeService(KnowledgeService):
     async def lookup_coverage(
         self, params: CoverageLookupParams
     ) -> CoverageResult:
-        """Look up coverage information for a CPT/ICD combination."""
+        """Look up coverage information for a CPT/ICD combination.
+        
+        Requirements: 14.4, 14.5 - Includes last-updated date and payer support status.
+        """
         payer = params.payer or "Medicare"
+        
+        # Check payer support (Requirement 14.5)
+        payer_supported, payer_message = self._check_payer_support(payer)
         
         # Find matching coverage record
         matching_coverage = None
@@ -139,6 +163,9 @@ class StubbedKnowledgeService(KnowledgeService):
                     )
                 ],
                 confidence=0.0,
+                last_updated=self._last_updated,
+                payer_supported=payer_supported,
+                payer_support_message=payer_message,
             )
 
         # Check ICD code coverage if provided
@@ -185,7 +212,37 @@ class StubbedKnowledgeService(KnowledgeService):
                 )
             ],
             confidence=0.95 if is_covered else 0.5,
+            last_updated=self._last_updated,
+            payer_supported=payer_supported,
+            payer_support_message=payer_message,
         )
+
+    def _check_payer_support(self, payer: str) -> tuple[bool, Optional[str]]:
+        """Check if a payer is supported in the database.
+        
+        Requirements: 14.5
+        
+        Args:
+            payer: The payer name to check.
+            
+        Returns:
+            Tuple of (is_supported, message_if_not_supported).
+        """
+        payer_lower = payer.lower().replace(" ", "")
+        
+        # Check against supported payers list
+        for supported in SUPPORTED_PAYERS:
+            if supported in payer_lower or payer_lower in supported:
+                return True, None
+        
+        # Payer not supported
+        message = (
+            f"The payer '{payer}' is not currently supported in our policy database. "
+            f"Please contact the payer directly for coverage information. "
+            f"Supported payers include: Medicare, Aetna, UnitedHealthcare, Cigna, Humana, "
+            f"Anthem, Kaiser, BCBS, Centene, Molina, and WellCare."
+        )
+        return False, message
 
     def _get_alternative_codes(self, cpt_code: str) -> list[AlternativeCode]:
         """Get alternative CPT codes for a non-covered code."""
@@ -206,7 +263,10 @@ class StubbedKnowledgeService(KnowledgeService):
         return []
 
     async def query_lcd(self, params: LCDQueryParams) -> LCDResult:
-        """Query Local Coverage Determination by MAC region."""
+        """Query Local Coverage Determination by MAC region.
+        
+        Requirements: 14.4 - Includes last-updated date.
+        """
         # Find matching LCD
         matching_lcd = None
         for lcd in self._lcd_data:
@@ -254,6 +314,7 @@ class StubbedKnowledgeService(KnowledgeService):
                 "documentation_requirements", []
             ),
             source_url=matching_lcd.get("source_url", ""),
+            last_updated=self._last_updated,
         )
 
     async def explain_denial_code(
@@ -305,7 +366,13 @@ class StubbedKnowledgeService(KnowledgeService):
     async def lookup_prior_auth(
         self, params: PriorAuthParams
     ) -> PriorAuthResult:
-        """Look up prior authorization requirements."""
+        """Look up prior authorization requirements.
+        
+        Requirements: 14.4, 14.5 - Includes last-updated date and payer support status.
+        """
+        # Check payer support (Requirement 14.5)
+        payer_supported, payer_message = self._check_payer_support(params.payer)
+        
         # Find matching prior auth record
         matching_auth = next(
             (
@@ -336,6 +403,9 @@ class StubbedKnowledgeService(KnowledgeService):
                         effective_date=self._last_updated,
                     )
                 ],
+                last_updated=self._last_updated,
+                payer_supported=payer_supported,
+                payer_support_message=payer_message,
             )
 
         # Parse plan variations
@@ -367,6 +437,9 @@ class StubbedKnowledgeService(KnowledgeService):
                     effective_date=self._last_updated,
                 )
             ],
+            last_updated=self._last_updated,
+            payer_supported=payer_supported,
+            payer_support_message=payer_message,
         )
 
     def get_data_source_info(self) -> DataSourceInfo:

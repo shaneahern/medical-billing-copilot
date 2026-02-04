@@ -17,6 +17,12 @@ from src.services.knowledge_factory import (
     get_knowledge_service,
     reset_knowledge_service,
 )
+from src.services.policy_database import (
+    PayerSupportStatus,
+    PolicyDatabase,
+    PolicyDatabaseStats,
+    PolicyFreshnessInfo,
+)
 from src.services.query_processor import QueryProcessor
 from src.services.rag_knowledge import RAGConfig, RAGKnowledgeService
 from src.services.stubbed_knowledge import StubbedKnowledgeService
@@ -39,4 +45,8 @@ __all__ = [
     "get_knowledge_service",
     "reset_knowledge_service",
     "get_data_source_indicator",
+    "PolicyDatabase",
+    "PolicyFreshnessInfo",
+    "PayerSupportStatus",
+    "PolicyDatabaseStats",
 ]
