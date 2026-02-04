@@ -32,7 +32,7 @@ Tasks are ordered to enable incremental development with early validation of cor
     - _Requirements: 6.5_
 
 - [ ] 2. Authentication service
-  - [ ] 2.1 Implement JWT-based authentication
+  - [x] 2.1 Implement JWT-based authentication
     - Create AuthService with login, logout, refresh_token, validate_token methods
     - Implement password hashing with passlib
     - Configure JWT token generation and validation
