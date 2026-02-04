@@ -1,0 +1,103 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-02-01T00:00:00Z",
+    "description": "Sample Local Coverage Determinations for 3 MAC regions"
+  },
+  "lcds": [
+    {
+      "lcd_id": "L33777",
+      "title": "Evaluation and Management Services",
+      "mac_region": "NOVITAS",
+      "mac_name": "Novitas Solutions",
+      "effective_date": "2025-10-01T00:00:00Z",
+      "revision_history": [
+        {
+          "version": "R3",
+          "effective_date": "2025-10-01T00:00:00Z",
+          "summary": "Updated documentation requirements for E/M services"
+        },
+        {
+          "version": "R2",
+          "effective_date": "2024-01-01T00:00:00Z",
+          "summary": "Added telehealth provisions"
+        }
+      ],
+      "covered_cpt_codes": ["99213", "99214", "99215", "99211", "99212"],
+      "covered_icd_codes": ["J06.9", "J20.9", "R05.9", "I10", "E11.9"],
+      "limitations": [
+        "Medical necessity must be documented",
+        "Time-based billing requires documentation of total time",
+        "Only one E/M service per day per provider"
+      ],
+      "documentation_requirements": [
+        "Chief complaint",
+        "History of present illness",
+        "Review of systems (for 99214-99215)",
+        "Physical examination findings",
+        "Medical decision making complexity"
+      ],
+      "source_url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=33777"
+    },
+    {
+      "lcd_id": "L35014",
+      "title": "Evaluation and Management Services",
+      "mac_region": "PALMETTO",
+      "mac_name": "Palmetto GBA",
+      "effective_date": "2025-07-01T00:00:00Z",
+      "revision_history": [
+        {
+          "version": "R4",
+          "effective_date": "2025-07-01T00:00:00Z",
+          "summary": "Clarified medical decision making criteria"
+        }
+      ],
+      "covered_cpt_codes": ["99213", "99214", "99215", "99211", "99212"],
+      "covered_icd_codes": ["J06.9", "J20.9", "R05.9", "I10", "E11.9", "M54.5"],
+      "limitations": [
+        "Documentation must support level of service billed",
+        "Modifier 25 required for separate E/M on procedure day"
+      ],
+      "documentation_requirements": [
+        "Chief complaint or reason for visit",
+        "Relevant history elements",
+        "Examination appropriate to presenting problem",
+        "Assessment and plan"
+      ],
+      "source_url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=35014"
+    },
+    {
+      "lcd_id": "L35093",
+      "title": "Evaluation and Management Services",
+      "mac_region": "CGS",
+      "mac_name": "CGS Administrators",
+      "effective_date": "2025-04-01T00:00:00Z",
+      "revision_history": [
+        {
+          "version": "R2",
+          "effective_date": "2025-04-01T00:00:00Z",
+          "summary": "Updated for 2025 E/M guidelines"
+        },
+        {
+          "version": "R1",
+          "effective_date": "2023-01-01T00:00:00Z",
+          "summary": "Initial LCD publication"
+        }
+      ],
+      "covered_cpt_codes": ["99213", "99214", "99215", "99211", "99212"],
+      "covered_icd_codes": ["J06.9", "J20.9", "R05.9", "I10", "E11.9", "K21.0"],
+      "limitations": [
+        "Service must be medically necessary",
+        "Level of service must match documentation",
+        "Split/shared visits require proper documentation"
+      ],
+      "documentation_requirements": [
+        "Nature of presenting problem",
+        "History appropriate to problem",
+        "Examination elements",
+        "Medical decision making or time documentation"
+      ],
+      "source_url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=35093"
+    }
+  ]
+}
