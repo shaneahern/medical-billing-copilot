@@ -1,19 +1,12 @@
 """SQLAlchemy database models for Medical Billing Copilot."""
 
-import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
-
-
-class UserRole(str, enum.Enum):
-    """User role enumeration."""
-
-    USER = "user"
-    ADMIN = "admin"
+from src.schemas.common import UserRole  # Single source of truth for UserRole
 
 
 class User(Base):
@@ -47,6 +40,9 @@ class Session(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    last_activity: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
     )
 
     user: Mapped["User"] = relationship("User", back_populates="sessions")
