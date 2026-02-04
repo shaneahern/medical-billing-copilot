@@ -7,6 +7,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
 }
@@ -35,20 +36,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  const handleAuthResult = (result: AuthResult) => {
+    localStorage.setItem('access_token', result.access_token);
+    localStorage.setItem('refresh_token', result.refresh_token);
+    localStorage.setItem('user', JSON.stringify(result.user));
+    setUser(result.user);
+  };
+
   const login = async (email: string, password: string) => {
     setError(null);
     setIsLoading(true);
     
     try {
       const result: AuthResult = await authApi.login(email, password);
-      
-      localStorage.setItem('access_token', result.access_token);
-      localStorage.setItem('refresh_token', result.refresh_token);
-      localStorage.setItem('user', JSON.stringify(result.user));
-      
-      setUser(result.user);
+      handleAuthResult(result);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      const axiosError = err as { response?: { data?: { detail?: string } } };
+      setError(axiosError.response?.data?.detail || errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (email: string, password: string) => {
+    setError(null);
+    setIsLoading(true);
+    
+    try {
+      const result: AuthResult = await authApi.register(email, password);
+      handleAuthResult(result);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
       const axiosError = err as { response?: { data?: { detail?: string } } };
       setError(axiosError.response?.data?.detail || errorMessage);
       throw err;
@@ -77,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isLoading,
         login,
+        register,
         logout,
         error,
       }}

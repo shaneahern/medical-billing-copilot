@@ -43,6 +43,16 @@ class LoginRequest(BaseModel):
     )
 
 
+class RegisterRequest(BaseModel):
+    """Registration request payload."""
+
+    email: ValidatedEmail = Field(..., description="User email address")
+    password: str = Field(
+        ..., min_length=8, max_length=128, description="User password"
+    )
+    organization_id: Optional[str] = Field(None, description="Organization identifier")
+
+
 class RefreshRequest(BaseModel):
     """Token refresh request payload."""
 

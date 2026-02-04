@@ -186,7 +186,7 @@ Tasks are ordered to enable incremental development with early validation of cor
     - Show data source info in responses
     - _Requirements: 9.6_
 
-- [ ] 9. Checkpoint - Phase 1 MVP complete
+- [x] 9. Checkpoint - Phase 1 MVP complete
   - Ensure all tests pass, ask the user if questions arise.
   - Verify end-to-end flow from UI to stubbed knowledge service
 

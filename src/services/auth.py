@@ -61,6 +61,12 @@ class SessionNotFoundError(AuthenticationError):
     pass
 
 
+class UserAlreadyExistsError(AuthenticationError):
+    """Raised when attempting to register with an existing email."""
+
+    pass
+
+
 class AuthService:
     """Service for handling authentication operations.
 
@@ -268,6 +274,40 @@ class AuthService:
             raise InvalidCredentialsError("Invalid email or password")
 
         self._reset_failed_attempts(user)
+
+        access_token = self._create_access_token(user)
+        refresh_token = self._create_refresh_token(user)
+
+        return self._build_auth_result(user, access_token, refresh_token)
+
+    def register(self, email: str, password: str, organization_id: str | None = None) -> AuthResult:
+        """Register a new user and return tokens.
+
+        Args:
+            email: User email address
+            password: User password
+            organization_id: Optional organization identifier
+
+        Returns:
+            AuthResult with access token, refresh token, and user profile
+
+        Raises:
+            UserAlreadyExistsError: If email is already registered
+        """
+        existing_user = self._get_user_by_email(email)
+        if existing_user is not None:
+            raise UserAlreadyExistsError("Email is already registered")
+
+        user = User(
+            id=str(uuid.uuid4()),
+            email=email,
+            password_hash=self.hash_password(password),
+            organization_id=organization_id,
+            role=UserRole.USER,
+        )
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
 
         access_token = self._create_access_token(user)
         refresh_token = self._create_refresh_token(user)
