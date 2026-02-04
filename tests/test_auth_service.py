@@ -140,7 +140,11 @@ class TestLogin:
 
         test_db.refresh(test_user)
         assert test_user.locked_until is not None
-        assert test_user.locked_until > datetime.now(timezone.utc)
+        # Handle both naive and aware datetimes from database
+        locked_until = test_user.locked_until
+        if locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        assert locked_until > datetime.now(timezone.utc)
 
         # Now correct password should fail due to lock
         with pytest.raises(AccountLockedError):
@@ -304,3 +308,269 @@ class TestValidateToken:
 
         with pytest.raises(InvalidTokenError, match="Account is locked"):
             auth_service.validate_token(login_result.access_token)
+
+
+
+class TestAccountLockout:
+    """Tests for account lockout functionality."""
+
+    def test_lock_account_success(
+        self, auth_service: AuthService, test_user: User, test_db: Session
+    ) -> None:
+        """Test that lock_account locks the account."""
+        assert test_user.locked_until is None
+
+        auth_service.lock_account(test_user.id)
+
+        test_db.refresh(test_user)
+        assert test_user.locked_until is not None
+
+        # Verify login fails
+        with pytest.raises(AccountLockedError):
+            auth_service.login("test@example.com", "TestPassword123")
+
+    def test_lock_account_invalid_user(self, auth_service: AuthService) -> None:
+        """Test that lock_account raises error for invalid user."""
+        with pytest.raises(InvalidCredentialsError, match="User not found"):
+            auth_service.lock_account("nonexistent-user-id")
+
+    def test_unlock_account_success(
+        self, auth_service: AuthService, test_user: User, test_db: Session
+    ) -> None:
+        """Test that unlock_account unlocks the account and resets counter."""
+        # First lock the account
+        test_user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+        test_user.failed_login_attempts = 3
+        test_db.commit()
+
+        auth_service.unlock_account(test_user.id)
+
+        test_db.refresh(test_user)
+        assert test_user.locked_until is None
+        assert test_user.failed_login_attempts == 0
+
+        # Verify login works
+        result = auth_service.login("test@example.com", "TestPassword123")
+        assert result.access_token is not None
+
+    def test_unlock_account_invalid_user(self, auth_service: AuthService) -> None:
+        """Test that unlock_account raises error for invalid user."""
+        with pytest.raises(InvalidCredentialsError, match="User not found"):
+            auth_service.unlock_account("nonexistent-user-id")
+
+    def test_get_lockout_status_not_locked(
+        self, auth_service: AuthService, test_user: User
+    ) -> None:
+        """Test get_lockout_status for unlocked account."""
+        status = auth_service.get_lockout_status(test_user.id)
+
+        assert status["is_locked"] is False
+        assert status["failed_attempts"] == 0
+        assert status["locked_until"] is None
+        assert status["remaining_attempts"] == settings.max_failed_login_attempts
+
+    def test_get_lockout_status_with_failed_attempts(
+        self, auth_service: AuthService, test_user: User, test_db: Session
+    ) -> None:
+        """Test get_lockout_status with some failed attempts."""
+        # Fail login twice
+        for _ in range(2):
+            with pytest.raises(InvalidCredentialsError):
+                auth_service.login("test@example.com", "WrongPassword")
+
+        status = auth_service.get_lockout_status(test_user.id)
+
+        assert status["is_locked"] is False
+        assert status["failed_attempts"] == 2
+        assert status["locked_until"] is None
+        assert status["remaining_attempts"] == settings.max_failed_login_attempts - 2
+
+    def test_get_lockout_status_locked(
+        self, auth_service: AuthService, test_user: User, test_db: Session
+    ) -> None:
+        """Test get_lockout_status for locked account."""
+        # Lock the account
+        lock_time = datetime.now(timezone.utc) + timedelta(minutes=15)
+        test_user.locked_until = lock_time
+        test_user.failed_login_attempts = 3
+        test_db.commit()
+
+        status = auth_service.get_lockout_status(test_user.id)
+
+        assert status["is_locked"] is True
+        assert status["failed_attempts"] == 3
+        assert status["locked_until"] is not None
+        assert status["remaining_attempts"] == 0
+
+    def test_get_lockout_status_invalid_user(self, auth_service: AuthService) -> None:
+        """Test that get_lockout_status raises error for invalid user."""
+        with pytest.raises(InvalidCredentialsError, match="User not found"):
+            auth_service.get_lockout_status("nonexistent-user-id")
+
+    def test_lockout_expires_automatically(
+        self, auth_service: AuthService, test_user: User, test_db: Session
+    ) -> None:
+        """Test that lockout expires after the configured duration."""
+        # Set lockout to have expired
+        test_user.locked_until = datetime.now(timezone.utc) - timedelta(minutes=1)
+        test_user.failed_login_attempts = 3
+        test_db.commit()
+
+        # Login should succeed since lockout has expired
+        result = auth_service.login("test@example.com", "TestPassword123")
+        assert result.access_token is not None
+
+        # Failed attempts should be reset
+        test_db.refresh(test_user)
+        assert test_user.failed_login_attempts == 0
+
+
+from src.db.models import Session as SessionModel
+from src.services.auth import SessionTimeoutError, SessionNotFoundError
+
+
+@pytest.fixture
+def test_session(test_db: Session, test_user: User) -> SessionModel:
+    """Create a test session in the database."""
+    session = SessionModel(
+        id=str(uuid.uuid4()),
+        user_id=test_user.id,
+        title="Test Session",
+        last_activity=datetime.now(timezone.utc),
+    )
+    test_db.add(session)
+    test_db.commit()
+    return session
+
+
+class TestSessionTimeout:
+    """Tests for session timeout functionality (Requirement 7.3)."""
+
+    def test_validate_session_freshness_success(
+        self, auth_service: AuthService, test_session: SessionModel
+    ) -> None:
+        """Test that a fresh session passes validation."""
+        result = auth_service.validate_session_freshness(test_session.id)
+        assert result is True
+
+    def test_validate_session_freshness_timed_out(
+        self, auth_service: AuthService, test_session: SessionModel, test_db: Session
+    ) -> None:
+        """Test that a timed out session raises SessionTimeoutError."""
+        # Set last_activity to 31 minutes ago (beyond 30-minute timeout)
+        test_session.last_activity = datetime.now(timezone.utc) - timedelta(minutes=31)
+        test_db.commit()
+
+        with pytest.raises(SessionTimeoutError, match="Session has timed out"):
+            auth_service.validate_session_freshness(test_session.id)
+
+    def test_validate_session_freshness_not_found(
+        self, auth_service: AuthService
+    ) -> None:
+        """Test that a non-existent session raises SessionNotFoundError."""
+        with pytest.raises(SessionNotFoundError, match="Session not found"):
+            auth_service.validate_session_freshness("nonexistent-session-id")
+
+    def test_update_session_activity_success(
+        self, auth_service: AuthService, test_session: SessionModel, test_db: Session
+    ) -> None:
+        """Test that session activity is updated correctly."""
+        old_activity = test_session.last_activity
+        
+        # Wait a tiny bit to ensure time difference
+        auth_service.update_session_activity(test_session.id)
+        
+        test_db.refresh(test_session)
+        assert test_session.last_activity >= old_activity
+
+    def test_update_session_activity_timed_out(
+        self, auth_service: AuthService, test_session: SessionModel, test_db: Session
+    ) -> None:
+        """Test that updating a timed out session raises SessionTimeoutError."""
+        test_session.last_activity = datetime.now(timezone.utc) - timedelta(minutes=31)
+        test_db.commit()
+
+        with pytest.raises(SessionTimeoutError, match="Session has timed out"):
+            auth_service.update_session_activity(test_session.id)
+
+    def test_update_session_activity_not_found(
+        self, auth_service: AuthService
+    ) -> None:
+        """Test that updating a non-existent session raises SessionNotFoundError."""
+        with pytest.raises(SessionNotFoundError, match="Session not found"):
+            auth_service.update_session_activity("nonexistent-session-id")
+
+    def test_validate_and_refresh_session_success(
+        self, auth_service: AuthService, test_session: SessionModel, test_db: Session
+    ) -> None:
+        """Test that validate_and_refresh_session works for fresh sessions."""
+        old_activity = test_session.last_activity
+        
+        result = auth_service.validate_and_refresh_session(test_session.id)
+        
+        assert result is True
+        test_db.refresh(test_session)
+        assert test_session.last_activity >= old_activity
+
+    def test_validate_and_refresh_session_timed_out(
+        self, auth_service: AuthService, test_session: SessionModel, test_db: Session
+    ) -> None:
+        """Test that validate_and_refresh_session raises error for timed out sessions."""
+        test_session.last_activity = datetime.now(timezone.utc) - timedelta(minutes=31)
+        test_db.commit()
+
+        with pytest.raises(SessionTimeoutError, match="Session has timed out"):
+            auth_service.validate_and_refresh_session(test_session.id)
+
+    def test_get_session_timeout_info_fresh(
+        self, auth_service: AuthService, test_session: SessionModel
+    ) -> None:
+        """Test get_session_timeout_info for a fresh session."""
+        info = auth_service.get_session_timeout_info(test_session.id)
+
+        assert info["is_timed_out"] is False
+        assert info["last_activity"] is not None
+        assert info["timeout_at"] is not None
+        assert info["remaining_seconds"] > 0
+
+    def test_get_session_timeout_info_timed_out(
+        self, auth_service: AuthService, test_session: SessionModel, test_db: Session
+    ) -> None:
+        """Test get_session_timeout_info for a timed out session."""
+        test_session.last_activity = datetime.now(timezone.utc) - timedelta(minutes=31)
+        test_db.commit()
+
+        info = auth_service.get_session_timeout_info(test_session.id)
+
+        assert info["is_timed_out"] is True
+        assert info["remaining_seconds"] == 0
+
+    def test_get_session_timeout_info_not_found(
+        self, auth_service: AuthService
+    ) -> None:
+        """Test get_session_timeout_info for non-existent session."""
+        with pytest.raises(SessionNotFoundError, match="Session not found"):
+            auth_service.get_session_timeout_info("nonexistent-session-id")
+
+    def test_session_timeout_at_boundary(
+        self, auth_service: AuthService, test_session: SessionModel, test_db: Session
+    ) -> None:
+        """Test session timeout at exactly 30 minutes."""
+        # Set to exactly 30 minutes ago - should be timed out (timeout is >= 30 min)
+        test_session.last_activity = datetime.now(timezone.utc) - timedelta(minutes=30)
+        test_db.commit()
+
+        # At exactly 30 minutes, session should be timed out
+        with pytest.raises(SessionTimeoutError):
+            auth_service.validate_session_freshness(test_session.id)
+
+    def test_session_timeout_just_before_boundary(
+        self, auth_service: AuthService, test_session: SessionModel, test_db: Session
+    ) -> None:
+        """Test session is still valid just before 30 minutes."""
+        # Set to 29 minutes and 59 seconds ago - should still be valid
+        test_session.last_activity = datetime.now(timezone.utc) - timedelta(minutes=29, seconds=59)
+        test_db.commit()
+
+        result = auth_service.validate_session_freshness(test_session.id)
+        assert result is True

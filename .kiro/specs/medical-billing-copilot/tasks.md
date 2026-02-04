@@ -38,13 +38,13 @@ Tasks are ordered to enable incremental development with early validation of cor
     - Configure JWT token generation and validation
     - _Requirements: 7.1, 7.2_
 
-  - [ ] 2.2 Implement account lockout mechanism
+  - [x] 2.2 Implement account lockout mechanism
     - Track failed login attempts in User model
     - Lock account after 3 consecutive failures
     - Implement lockout duration and reset logic
     - _Requirements: 7.5_
 
-  - [ ] 2.3 Implement session timeout
+  - [x] 2.3 Implement session timeout
     - Configure 30-minute inactivity timeout
     - Validate session freshness on each request
     - _Requirements: 7.3_
