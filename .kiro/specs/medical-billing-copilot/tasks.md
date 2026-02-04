@@ -239,26 +239,26 @@ Tasks are ordered to enable incremental development with early validation of cor
     - Test change detection and re-indexing
     - **Validates: Requirements 11.1-11.7**
 
-- [ ] 12. RAG Knowledge Service
-  - [ ] 12.1 Implement RAGKnowledgeService
+- [x] 12. RAG Knowledge Service
+  - [x] 12.1 Implement RAGKnowledgeService
     - Initialize LangChain with vector store retriever
     - Configure retrieval parameters (top-k, similarity threshold)
     - Implement hybrid search (semantic + keyword)
     - _Requirements: 10.1, 10.2, 10.6_
 
-  - [ ] 12.2 Implement LLM integration
+  - [x] 12.2 Implement LLM integration
     - Configure OpenAI/Anthropic client
     - Create prompt templates for medical billing Q&A
     - Implement response generation with source grounding
     - _Requirements: 13.1, 13.2, 13.3_
 
-  - [ ] 12.3 Implement confidence scoring
+  - [x] 12.3 Implement confidence scoring
     - Calculate relevance scores for retrieved documents
     - Flag low-confidence responses
     - Indicate uncertainty when below threshold
     - _Requirements: 10.4, 10.5, 13.5_
 
-  - [ ] 12.4 Wire RAGKnowledgeService to application
+  - [x] 12.4 Wire RAGKnowledgeService to application
     - Configure service selection (stubbed vs RAG)
     - Update data source indicator in responses
     - _Requirements: 6.3, 13.6_

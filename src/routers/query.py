@@ -33,10 +33,11 @@ from src.schemas.query import QueryRequest, QueryResponse
 from src.services import (
     AuthService,
     InvalidTokenError,
+    KnowledgeService,
     QueryProcessor,
-    StubbedKnowledgeService,
     TokenExpiredError,
 )
+from src.services.knowledge_factory import get_knowledge_service as factory_get_knowledge_service
 
 router = APIRouter(prefix="/api", tags=["query"])
 security = HTTPBearer()
@@ -90,14 +91,20 @@ class NaturalLanguageQueryRequest(BaseModel):
 
 
 # Dependency functions
-def get_knowledge_service() -> StubbedKnowledgeService:
-    """Get the knowledge service instance."""
-    return StubbedKnowledgeService()
+def get_knowledge_service() -> KnowledgeService:
+    """Get the knowledge service instance based on configuration.
+    
+    Uses the knowledge service factory to return either StubbedKnowledgeService
+    or RAGKnowledgeService based on settings.knowledge_service_type.
+    
+    Requirements: 6.3, 13.6
+    """
+    return factory_get_knowledge_service()
 
 
 def get_query_processor(
     db: DBSession = Depends(get_db),
-    knowledge_service: StubbedKnowledgeService = Depends(get_knowledge_service),
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ) -> QueryProcessor:
     """Get the query processor instance."""
     return QueryProcessor(knowledge_service=knowledge_service, db=db)
@@ -159,7 +166,7 @@ async def lookup_coverage(
     request: CoverageRequest,
     current_user: dict = Depends(get_current_user),
     db: DBSession = Depends(get_db),
-    knowledge_service: StubbedKnowledgeService = Depends(get_knowledge_service),
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ) -> CoverageResult:
     """Look up coverage for a CPT code.
     
@@ -179,6 +186,9 @@ async def lookup_coverage(
     
     result = await knowledge_service.lookup_coverage(params)
     
+    # Get data source from knowledge service
+    data_source_info = knowledge_service.get_data_source_info()
+    
     # Log the query for audit (Requirement 7.4)
     response_time_ms = int((time.time() - start_time) * 1000)
     # Use a placeholder session_id for direct API calls
@@ -189,7 +199,7 @@ async def lookup_coverage(
         query=f"Coverage lookup: CPT={request.cpt_code}, ICD={request.icd_codes}, Payer={request.payer}",
         query_type=QueryType.COVERAGE_LOOKUP,
         response_time_ms=response_time_ms,
-        data_source=DataSource.STUBBED,
+        data_source=data_source_info.type,
     )
     
     return result
@@ -202,7 +212,7 @@ async def query_lcd(
     lcd_id: Optional[str] = Query(None, description="LCD identifier"),
     current_user: dict = Depends(get_current_user),
     db: DBSession = Depends(get_db),
-    knowledge_service: StubbedKnowledgeService = Depends(get_knowledge_service),
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ) -> LCDResult | LCDPromptResponse:
     """Query Local Coverage Determination by MAC region.
     
@@ -231,6 +241,9 @@ async def query_lcd(
     try:
         result = await knowledge_service.query_lcd(params)
         
+        # Get data source from knowledge service
+        data_source_info = knowledge_service.get_data_source_info()
+        
         # Log the query for audit (Requirement 7.4)
         response_time_ms = int((time.time() - start_time) * 1000)
         log_query(
@@ -240,7 +253,7 @@ async def query_lcd(
             query=f"LCD query: MAC={mac_region}, CPT={cpt_code}, LCD_ID={lcd_id}",
             query_type=QueryType.LCD_QUERY,
             response_time_ms=response_time_ms,
-            data_source=DataSource.STUBBED,
+            data_source=data_source_info.type,
         )
         
         return result
@@ -259,7 +272,7 @@ async def explain_denial_code(
     claim_type: Optional[str] = Query(None, description="Claim type"),
     current_user: dict = Depends(get_current_user),
     db: DBSession = Depends(get_db),
-    knowledge_service: StubbedKnowledgeService = Depends(get_knowledge_service),
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ) -> DenialExplanation:
     """Explain a CARC denial code.
     
@@ -279,6 +292,9 @@ async def explain_denial_code(
     try:
         result = await knowledge_service.explain_denial_code(code, context)
         
+        # Get data source from knowledge service
+        data_source_info = knowledge_service.get_data_source_info()
+        
         # Log the query for audit (Requirement 7.4)
         response_time_ms = int((time.time() - start_time) * 1000)
         log_query(
@@ -288,7 +304,7 @@ async def explain_denial_code(
             query=f"Denial code explanation: CARC={code}, Payer={payer}, CPT={cpt_code}",
             query_type=QueryType.DENIAL_EXPLANATION,
             response_time_ms=response_time_ms,
-            data_source=DataSource.STUBBED,
+            data_source=data_source_info.type,
         )
         
         return result
@@ -306,7 +322,7 @@ async def lookup_prior_auth(
     plan_type: Optional[str] = Query(None, description="Plan type"),
     current_user: dict = Depends(get_current_user),
     db: DBSession = Depends(get_db),
-    knowledge_service: StubbedKnowledgeService = Depends(get_knowledge_service),
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ) -> PriorAuthResult:
     """Look up prior authorization requirements.
     
@@ -325,6 +341,9 @@ async def lookup_prior_auth(
     
     result = await knowledge_service.lookup_prior_auth(params)
     
+    # Get data source from knowledge service
+    data_source_info = knowledge_service.get_data_source_info()
+    
     # Log the query for audit (Requirement 7.4)
     response_time_ms = int((time.time() - start_time) * 1000)
     log_query(
@@ -334,7 +353,7 @@ async def lookup_prior_auth(
         query=f"Prior auth lookup: CPT={cpt_code}, Payer={payer}, Plan={plan_type}",
         query_type=QueryType.PRIOR_AUTH,
         response_time_ms=response_time_ms,
-        data_source=DataSource.STUBBED,
+        data_source=data_source_info.type,
     )
     
     return result
@@ -403,3 +422,20 @@ async def submit_query(
     )
     
     return response
+
+
+
+@router.get("/data-source")
+async def get_data_source_info(
+    current_user: dict = Depends(get_current_user),
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service),
+) -> dict:
+    """Get information about the current data source.
+    
+    Returns data source indicator for UI display.
+    
+    Requirements: 9.6, 13.6
+    """
+    from src.services.knowledge_factory import get_data_source_indicator
+    
+    return get_data_source_indicator()
