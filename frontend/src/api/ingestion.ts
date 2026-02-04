@@ -81,47 +81,47 @@ export interface CommercialPayer {
 
 // API Functions
 export async function getIngestionStats(): Promise<IngestionStats> {
-  const response = await apiClient.get('/api/ingestion/stats');
+  const response = await apiClient.get('/ingestion/stats');
   return response.data;
 }
 
 export async function getPolicyDatabaseStats(): Promise<PolicyDatabaseStats> {
-  const response = await apiClient.get('/api/ingestion/policy/stats');
+  const response = await apiClient.get('/ingestion/policy/stats');
   return response.data;
 }
 
 export async function getSupportedPayers(): Promise<PayerSupport[]> {
-  const response = await apiClient.get('/api/ingestion/policy/payers/supported');
+  const response = await apiClient.get('/ingestion/policy/payers/supported');
   return response.data;
 }
 
 export async function getCommercialPayers(): Promise<CommercialPayer[]> {
-  const response = await apiClient.get('/api/ingestion/payers');
+  const response = await apiClient.get('/ingestion/payers');
   return response.data.payers;
 }
 
 export async function getMACRegions(): Promise<{ mac_regions: MACRegionCoverage[]; total_regions: number }> {
-  const response = await apiClient.get('/api/ingestion/policy/mac-regions');
+  const response = await apiClient.get('/ingestion/policy/mac-regions');
   return response.data;
 }
 
 export async function getPolicyFreshness(source: string): Promise<PolicyFreshness> {
-  const response = await apiClient.get(`/api/ingestion/policy/freshness/${source}`);
+  const response = await apiClient.get(`/ingestion/policy/freshness/${source}`);
   return response.data;
 }
 
 export async function getIngestionJobs(limit = 50): Promise<IngestionJob[]> {
-  const response = await apiClient.get('/api/ingestion/jobs', { params: { limit } });
+  const response = await apiClient.get('/ingestion/jobs', { params: { limit } });
   return response.data;
 }
 
 export async function getRunningJobs(): Promise<IngestionJob[]> {
-  const response = await apiClient.get('/api/ingestion/jobs/running');
+  const response = await apiClient.get('/ingestion/jobs/running');
   return response.data;
 }
 
 export async function getIngestionLogs(jobId?: string, limit = 100): Promise<IngestionLog[]> {
-  const response = await apiClient.get('/api/ingestion/logs', {
+  const response = await apiClient.get('/ingestion/logs', {
     params: { job_id: jobId, limit },
   });
   return response.data;
@@ -131,7 +131,7 @@ export async function triggerCMSIngestion(
   macRegions?: string[],
   documentType?: 'LCD' | 'NCD'
 ): Promise<IngestionJob> {
-  const response = await apiClient.post('/api/ingestion/trigger/cms', {
+  const response = await apiClient.post('/ingestion/trigger/cms', {
     mac_regions: macRegions,
     document_type: documentType,
   });
@@ -142,7 +142,7 @@ export async function triggerCommercialIngestion(
   payerIds?: string[],
   limitPerPayer = 100
 ): Promise<IngestionJob> {
-  const response = await apiClient.post('/api/ingestion/trigger/commercial', {
+  const response = await apiClient.post('/ingestion/trigger/commercial', {
     payer_ids: payerIds,
     limit_per_payer: limitPerPayer,
   });
@@ -150,22 +150,22 @@ export async function triggerCommercialIngestion(
 }
 
 export async function triggerFullIngestion(): Promise<IngestionJob[]> {
-  const response = await apiClient.post('/api/ingestion/trigger/full');
+  const response = await apiClient.post('/ingestion/trigger/full');
   return response.data;
 }
 
 export async function getSchedulerStatus(): Promise<{ running: boolean }> {
-  const response = await apiClient.get('/api/ingestion/scheduler/status');
+  const response = await apiClient.get('/ingestion/scheduler/status');
   return response.data;
 }
 
 export async function startScheduler(intervalHours = 24, runImmediately = false): Promise<void> {
-  await apiClient.post('/api/ingestion/scheduler/start', {
+  await apiClient.post('/ingestion/scheduler/start', {
     interval_hours: intervalHours,
     run_immediately: runImmediately,
   });
 }
 
 export async function stopScheduler(): Promise<void> {
-  await apiClient.post('/api/ingestion/scheduler/stop');
+  await apiClient.post('/ingestion/scheduler/stop');
 }
