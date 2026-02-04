@@ -24,6 +24,7 @@ class SessionResponse(BaseModel):
     title: Optional[str] = Field(None, max_length=200, description="Session title")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
+    last_activity: datetime = Field(..., description="Last activity timestamp")
 
 
 class SessionWithMessages(SessionResponse):
