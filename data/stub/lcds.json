@@ -37,7 +37,7 @@
         "Physical examination findings",
         "Medical decision making complexity"
       ],
-      "source_url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=33777"
+      "source_url": "https://localcoverage.cms.gov/mcd_archive/search-results.aspx?keyword=L33777"
     },
     {
       "lcd_id": "L35014",
@@ -64,7 +64,7 @@
         "Examination appropriate to presenting problem",
         "Assessment and plan"
       ],
-      "source_url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=35014"
+      "source_url": "https://localcoverage.cms.gov/mcd_archive/search-results.aspx?keyword=L35014"
     },
     {
       "lcd_id": "L35093",
@@ -97,7 +97,7 @@
         "Examination elements",
         "Medical decision making or time documentation"
       ],
-      "source_url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=35093"
+      "source_url": "https://localcoverage.cms.gov/mcd_archive/search-results.aspx?keyword=L35093"
     }
   ]
 }

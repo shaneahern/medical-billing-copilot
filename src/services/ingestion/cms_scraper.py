@@ -41,9 +41,9 @@ class CMSScraper:
 
     # CMS.gov base URLs
     BASE_URL = "https://www.cms.gov"
-    LCD_SEARCH_URL = "https://www.cms.gov/medicare-coverage-database/search/lcd-search.aspx"
+    LCD_SEARCH_URL = "https://localcoverage.cms.gov/mcd_archive/search-results.aspx"
     NCD_SEARCH_URL = "https://www.cms.gov/medicare-coverage-database/search/ncd-search.aspx"
-    LCD_DETAIL_URL = "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx"
+    LCD_ARCHIVE_URL = "https://localcoverage.cms.gov/mcd_archive/search-results.aspx"
     NCD_DETAIL_URL = "https://www.cms.gov/medicare-coverage-database/view/ncd.aspx"
 
     # MAC region mappings
@@ -56,6 +56,20 @@ class CMSScraper:
         "First Coast": ["9"],
         "Noridian": ["A", "B", "E", "F"],
     }
+
+    @staticmethod
+    def build_lcd_url(lcd_id: str) -> str:
+        """Build the correct LCD archive URL.
+        
+        Args:
+            lcd_id: The LCD identifier (numeric, e.g., "33777").
+            
+        Returns:
+            The correct URL format for the LCD archive.
+        """
+        # Format: https://localcoverage.cms.gov/mcd_archive/search-results.aspx?keyword=L33777
+        lcd_keyword = f"L{lcd_id}" if not lcd_id.startswith("L") else lcd_id
+        return f"https://localcoverage.cms.gov/mcd_archive/search-results.aspx?keyword={lcd_keyword}"
 
     def __init__(
         self,
@@ -415,7 +429,7 @@ class CMSScraper:
             document_id=lcd_id,
             document_type=DocumentType.LCD,
             title=title,
-            source_url=f"{self.LCD_DETAIL_URL}?lcdId={lcd_id}",
+            source_url=self.build_lcd_url(lcd_id),
             mac_region=mac_region,
             effective_date=effective_date,
         )
@@ -520,7 +534,7 @@ class CMSScraper:
             document_id=lcd_id,
             document_type=DocumentType.LCD,
             title=title,
-            source_url=f"{self.LCD_DETAIL_URL}?lcdId={lcd_id}",
+            source_url=self.build_lcd_url(lcd_id),
             mac_region=mac_region or mac_name,
             effective_date=effective_date,
             last_updated=datetime.utcnow(),
