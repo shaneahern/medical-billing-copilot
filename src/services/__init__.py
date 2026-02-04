@@ -12,7 +12,13 @@ from src.services.auth import (
     UserAlreadyExistsError,
 )
 from src.services.knowledge import KnowledgeService
+from src.services.knowledge_factory import (
+    get_data_source_indicator,
+    get_knowledge_service,
+    reset_knowledge_service,
+)
 from src.services.query_processor import QueryProcessor
+from src.services.rag_knowledge import RAGConfig, RAGKnowledgeService
 from src.services.stubbed_knowledge import StubbedKnowledgeService
 
 __all__ = [
@@ -27,5 +33,10 @@ __all__ = [
     "UserAlreadyExistsError",
     "KnowledgeService",
     "StubbedKnowledgeService",
+    "RAGKnowledgeService",
+    "RAGConfig",
     "QueryProcessor",
+    "get_knowledge_service",
+    "reset_knowledge_service",
+    "get_data_source_indicator",
 ]
