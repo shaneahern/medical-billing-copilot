@@ -169,3 +169,26 @@ export async function startScheduler(intervalHours = 24, runImmediately = false)
 export async function stopScheduler(): Promise<void> {
   await apiClient.post('/ingestion/scheduler/stop');
 }
+
+
+// Custom Document Types
+export interface CustomDocumentRequest {
+  title: string;
+  content: string;
+  source_type: 'LCD' | 'NCD' | 'COMMERCIAL' | 'CARC';
+  payer?: string;
+  mac_region?: string;
+  source_url?: string;
+  effective_date?: string;
+}
+
+export interface CustomDocumentResponse {
+  success: boolean;
+  document_id: string;
+  message: string;
+}
+
+export async function addCustomDocument(doc: CustomDocumentRequest): Promise<CustomDocumentResponse> {
+  const response = await apiClient.post('/ingestion/documents/custom', doc);
+  return response.data;
+}

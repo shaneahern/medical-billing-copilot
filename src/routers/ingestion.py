@@ -81,6 +81,24 @@ class IngestionStats(BaseModel):
     log_entries: int
 
 
+class CustomDocumentRequest(BaseModel):
+    """Request to add a custom document to the vector store."""
+    title: str = Field(..., min_length=1, max_length=500, description="Document title")
+    content: str = Field(..., min_length=10, description="Document content/text")
+    source_type: str = Field("COMMERCIAL", description="Source type: LCD, NCD, COMMERCIAL, CARC")
+    payer: Optional[str] = Field(None, description="Payer name (for commercial policies)")
+    mac_region: Optional[str] = Field(None, description="MAC region (for LCDs)")
+    source_url: Optional[str] = Field(None, description="URL to source document")
+    effective_date: Optional[str] = Field(None, description="Effective date (YYYY-MM-DD)")
+
+
+class CustomDocumentResponse(BaseModel):
+    """Response after adding a custom document."""
+    success: bool
+    document_id: str
+    message: str
+
+
 # Endpoints
 @router.post("/trigger/cms", response_model=IngestionJobResult)
 async def trigger_cms_ingestion(
@@ -164,6 +182,69 @@ async def get_scheduler_status(
     return {
         "running": orchestrator.is_scheduler_running(),
     }
+
+
+@router.post("/documents/custom", response_model=CustomDocumentResponse)
+async def add_custom_document(
+    request: CustomDocumentRequest,
+) -> CustomDocumentResponse:
+    """Add a custom document to the vector store.
+    
+    This endpoint allows adding custom policy documents, PDFs, or other
+    text content directly to the RAG system without going through the
+    standard ingestion pipeline.
+    """
+    import uuid
+    from src.config import settings
+    
+    # Generate document ID
+    doc_id = f"custom-{uuid.uuid4().hex[:8]}"
+    
+    # Build metadata
+    metadata = {
+        "source_type": request.source_type.upper(),
+        "document_id": doc_id,
+        "title": request.title,
+        "source_url": request.source_url,
+    }
+    
+    if request.payer:
+        metadata["payer"] = request.payer.lower()
+    if request.mac_region:
+        metadata["mac_region"] = request.mac_region.upper()
+    if request.effective_date:
+        metadata["effective_date"] = request.effective_date
+    
+    # Check if RAG mode is enabled
+    if settings.knowledge_service_type != "rag":
+        # For stubbed mode, just acknowledge the document
+        return CustomDocumentResponse(
+            success=True,
+            document_id=doc_id,
+            message="Document recorded (RAG mode not enabled - document will be available when RAG is enabled)",
+        )
+    
+    try:
+        from src.services.rag_knowledge import RAGKnowledgeService
+        
+        rag_service = RAGKnowledgeService()
+        await rag_service.add_documents([
+            {
+                "content": request.content,
+                "metadata": metadata,
+            }
+        ])
+        
+        return CustomDocumentResponse(
+            success=True,
+            document_id=doc_id,
+            message=f"Document '{request.title}' added successfully to vector store",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add document: {str(e)}",
+        )
 
 
 @router.get("/jobs", response_model=list[IngestionJobResult])

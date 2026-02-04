@@ -12,11 +12,13 @@ import {
   getSchedulerStatus,
   startScheduler,
   stopScheduler,
+  addCustomDocument,
   IngestionStats,
   PolicyDatabaseStats,
   PayerSupport,
   MACRegionCoverage,
   IngestionJob,
+  CustomDocumentRequest,
 } from '../api/ingestion';
 
 // Stats Card Component
@@ -87,6 +89,19 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  // Custom document form state
+  const [showAddDocForm, setShowAddDocForm] = useState(false);
+  const [customDoc, setCustomDoc] = useState<CustomDocumentRequest>({
+    title: '',
+    content: '',
+    source_type: 'COMMERCIAL',
+    payer: '',
+    mac_region: '',
+    source_url: '',
+    effective_date: '',
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -174,6 +189,33 @@ export function DashboardPage() {
     }
   };
 
+  const handleAddCustomDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionLoading('customDoc');
+    setError(null);
+    setSuccessMessage(null);
+    
+    try {
+      const result = await addCustomDocument(customDoc);
+      setSuccessMessage(result.message);
+      setShowAddDocForm(false);
+      setCustomDoc({
+        title: '',
+        content: '',
+        source_type: 'COMMERCIAL',
+        payer: '',
+        mac_region: '',
+        source_url: '',
+        effective_date: '',
+      });
+      await loadData();
+    } catch (err) {
+      setError('Failed to add custom document');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -209,6 +251,12 @@ export function DashboardPage() {
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
             {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+            {successMessage}
           </div>
         )}
 
@@ -297,6 +345,118 @@ export function DashboardPage() {
                   {runningJobs.length} job(s) currently running
                 </div>
               </div>
+            )}
+            
+            {/* Add Custom Document Button */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowAddDocForm(!showAddDocForm)}
+                className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                {showAddDocForm ? 'Cancel' : 'Add Custom Document'}
+              </button>
+            </div>
+
+            {/* Custom Document Form */}
+            {showAddDocForm && (
+              <form onSubmit={handleAddCustomDocument} className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Add Custom Document</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={customDoc.title}
+                      onChange={(e) => setCustomDoc({ ...customDoc, title: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      placeholder="Policy document title"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Source Type *</label>
+                    <select
+                      value={customDoc.source_type}
+                      onChange={(e) => setCustomDoc({ ...customDoc, source_type: e.target.value as 'LCD' | 'NCD' | 'COMMERCIAL' | 'CARC' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    >
+                      <option value="COMMERCIAL">Commercial Policy</option>
+                      <option value="LCD">Medicare LCD</option>
+                      <option value="NCD">Medicare NCD</option>
+                      <option value="CARC">CARC Code</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payer</label>
+                    <input
+                      type="text"
+                      value={customDoc.payer || ''}
+                      onChange={(e) => setCustomDoc({ ...customDoc, payer: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      placeholder="e.g., Aetna, UnitedHealthcare"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">MAC Region</label>
+                    <input
+                      type="text"
+                      value={customDoc.mac_region || ''}
+                      onChange={(e) => setCustomDoc({ ...customDoc, mac_region: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      placeholder="e.g., NOVITAS, PALMETTO"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Source URL</label>
+                    <input
+                      type="url"
+                      value={customDoc.source_url || ''}
+                      onChange={(e) => setCustomDoc({ ...customDoc, source_url: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
+                    <input
+                      type="date"
+                      value={customDoc.effective_date || ''}
+                      onChange={(e) => setCustomDoc({ ...customDoc, effective_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Content *</label>
+                  <textarea
+                    required
+                    rows={6}
+                    value={customDoc.content}
+                    onChange={(e) => setCustomDoc({ ...customDoc, content: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    placeholder="Paste the policy document content here..."
+                  />
+                </div>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddDocForm(false)}
+                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading === 'customDoc'}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {actionLoading === 'customDoc' ? 'Adding...' : 'Add Document'}
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </section>
