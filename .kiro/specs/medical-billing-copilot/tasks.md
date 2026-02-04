@@ -79,39 +79,39 @@ Tasks are ordered to enable incremental development with early validation of cor
     - **Property 13: Data source metadata inclusion**
     - **Validates: Requirements 6.3, 6.4**
 
-- [ ] 4. Checkpoint - Core services complete
+- [x] 4. Checkpoint - Core services complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Query processor and API endpoints
-  - [ ] 5.1 Implement QueryProcessor service
+- [x] 5. Query processor and API endpoints
+  - [x] 5.1 Implement QueryProcessor service
     - Create query classification logic (coverage, LCD, denial, prior auth, general)
     - Implement conversation context management
     - Wire to KnowledgeService for data retrieval
     - _Requirements: 1.1, 1.4_
 
-  - [ ] 5.2 Implement coverage lookup endpoint
+  - [x] 5.2 Implement coverage lookup endpoint
     - POST /api/coverage with CPT, ICD, payer parameters
     - Default to Medicare when payer not specified
     - Return coverage result with citations
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-  - [ ] 5.3 Implement LCD query endpoint
+  - [x] 5.3 Implement LCD query endpoint
     - GET /api/lcd with MAC region and CPT code parameters
     - Prompt for region if not specified
     - Return LCD with revision history
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-  - [ ] 5.4 Implement denial code explanation endpoint
+  - [x] 5.4 Implement denial code explanation endpoint
     - GET /api/denial-codes/{code}
     - Return categorized explanation with recommended actions
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-  - [ ] 5.5 Implement prior auth lookup endpoint
+  - [x] 5.5 Implement prior auth lookup endpoint
     - GET /api/prior-auth with CPT and payer parameters
     - Return auth requirements with plan variations
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-  - [ ] 5.6 Implement main query endpoint
+  - [x] 5.6 Implement main query endpoint
     - POST /api/query for natural language queries
     - Classify query type and route to appropriate handler
     - Return response with citations within 3 seconds

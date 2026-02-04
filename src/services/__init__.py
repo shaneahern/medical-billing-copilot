@@ -11,6 +11,7 @@ from src.services.auth import (
     TokenExpiredError,
 )
 from src.services.knowledge import KnowledgeService
+from src.services.query_processor import QueryProcessor
 from src.services.stubbed_knowledge import StubbedKnowledgeService
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "SessionNotFoundError",
     "KnowledgeService",
     "StubbedKnowledgeService",
+    "QueryProcessor",
 ]
