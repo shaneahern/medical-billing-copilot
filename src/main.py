@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from src.routers import auth_router, query_router, session_router
+from src.routers.ingestion import router as ingestion_router
 
 app = FastAPI(
     title="Medical Billing Copilot",
@@ -14,6 +15,7 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(query_router)
 app.include_router(session_router)
+app.include_router(ingestion_router)
 
 
 @app.get("/health")

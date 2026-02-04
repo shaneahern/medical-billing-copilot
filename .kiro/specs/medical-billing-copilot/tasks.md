@@ -215,20 +215,20 @@ Tasks are ordered to enable incremental development with early validation of cor
     - Test metadata filtering accuracy
     - **Validates: Requirements 12.1-12.5**
 
-- [ ] 11. Data ingestion pipeline
-  - [ ] 11.1 Implement CMS.gov scraper for LCDs/NCDs
+- [x] 11. Data ingestion pipeline
+  - [x] 11.1 Implement CMS.gov scraper for LCDs/NCDs
     - Scrape Medicare LCD and NCD documents
     - Extract text content and metadata
     - Handle pagination and document links
     - _Requirements: 11.1_
 
-  - [ ] 11.2 Implement commercial payer policy scraper
+  - [x] 11.2 Implement commercial payer policy scraper
     - Support PDF extraction with PyPDF2
     - Support web page scraping with BeautifulSoup/Playwright
     - Extract policy text and metadata
     - _Requirements: 11.2_
 
-  - [ ] 11.3 Implement ingestion orchestration
+  - [x] 11.3 Implement ingestion orchestration
     - Create scheduled batch ingestion jobs
     - Support manual trigger for on-demand ingestion
     - Log ingestion activities with success/failure status
