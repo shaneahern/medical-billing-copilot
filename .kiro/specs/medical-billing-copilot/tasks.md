@@ -20,7 +20,7 @@ Tasks are ordered to enable incremental development with early validation of cor
     - Configure pytest and hypothesis settings
     - _Requirements: 8.1_
 
-  - [ ] 1.2 Set up PostgreSQL database and SQLAlchemy models
+  - [x] 1.2 Set up PostgreSQL database and SQLAlchemy models
     - Create database models for User, Session, MessageRecord, QueryLog
     - Set up Alembic for migrations
     - Create initial migration
