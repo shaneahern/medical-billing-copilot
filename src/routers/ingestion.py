@@ -482,3 +482,122 @@ async def verify_common_procedures_coverage(
         Dictionary with verification results.
     """
     return policy_db.verify_common_procedures_coverage()
+
+
+# ==================== Custom Document Upload ====================
+
+
+class CustomDocumentRequest(BaseModel):
+    """Request to add a custom document to the vector store."""
+    title: str = Field(..., min_length=1, max_length=500, description="Document title")
+    content: str = Field(..., min_length=10, description="Document content/text")
+    source_type: str = Field(
+        "COMMERCIAL",
+        description="Source type: LCD, NCD, COMMERCIAL, or CARC"
+    )
+    payer: Optional[str] = Field(None, description="Payer name (for commercial docs)")
+    mac_region: Optional[str] = Field(None, description="MAC region (for LCDs)")
+    effective_date: Optional[str] = Field(None, description="Effective date (YYYY-MM-DD)")
+    source_url: Optional[str] = Field(None, description="Source URL")
+
+
+class CustomDocumentResponse(BaseModel):
+    """Response after adding a custom document."""
+    success: bool
+    document_id: str
+    message: str
+    chunks_created: int
+
+
+@router.post("/documents/custom", response_model=CustomDocumentResponse)
+async def add_custom_document(
+    request: CustomDocumentRequest,
+) -> CustomDocumentResponse:
+    """Add a custom document to the RAG vector store.
+    
+    This endpoint allows adding ad-hoc policy documents, PDFs content,
+    or other text-based documents directly to the knowledge base.
+    """
+    import uuid
+    from datetime import datetime, UTC
+    
+    from src.config import settings
+    from src.services.knowledge_factory import get_knowledge_service
+    from src.services.rag_knowledge import RAGKnowledgeService
+    
+    # Generate document ID
+    doc_id = f"custom-{uuid.uuid4().hex[:12]}"
+    
+    # Check if RAG service is available
+    if settings.knowledge_service_type != "rag":
+        # For stubbed mode, just acknowledge the request
+        return CustomDocumentResponse(
+            success=True,
+            document_id=doc_id,
+            message="Document recorded (stubbed mode - not added to vector store)",
+            chunks_created=0,
+        )
+    
+    try:
+        # Get RAG service
+        service = get_knowledge_service()
+        
+        if not isinstance(service, RAGKnowledgeService):
+            return CustomDocumentResponse(
+                success=True,
+                document_id=doc_id,
+                message="Document recorded (RAG service not active)",
+                chunks_created=0,
+            )
+        
+        # Build metadata
+        metadata = {
+            "source_type": request.source_type.upper(),
+            "document_id": doc_id,
+            "title": request.title,
+            "custom_upload": True,
+            "uploaded_at": datetime.now(UTC).isoformat(),
+        }
+        
+        if request.payer:
+            metadata["payer"] = request.payer.lower()
+        if request.mac_region:
+            metadata["mac_region"] = request.mac_region.upper()
+        if request.effective_date:
+            metadata["effective_date"] = request.effective_date
+        if request.source_url:
+            metadata["source_url"] = request.source_url
+        
+        # Add document to vector store
+        chunks_added = await service.add_documents([
+            {
+                "content": request.content,
+                "metadata": metadata,
+            }
+        ])
+        
+        return CustomDocumentResponse(
+            success=True,
+            document_id=doc_id,
+            message=f"Document '{request.title}' added successfully",
+            chunks_created=chunks_added,
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add document: {str(e)}",
+        )
+
+
+@router.get("/documents/custom")
+async def list_custom_documents() -> dict:
+    """List all custom-uploaded documents.
+    
+    Note: This is a placeholder - full implementation would query
+    the vector store for documents with custom_upload=True metadata.
+    """
+    return {
+        "message": "Custom document listing not yet implemented",
+        "hint": "Documents are stored in the vector store with custom_upload=True metadata",
+    }

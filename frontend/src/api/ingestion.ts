@@ -182,13 +182,26 @@ export interface CustomDocumentRequest {
   effective_date?: string;
 }
 
+export interface CustomDocumentRequest {
+  title: string;
+  content: string;
+  source_type: 'LCD' | 'NCD' | 'COMMERCIAL' | 'CARC';
+  payer?: string;
+  mac_region?: string;
+  effective_date?: string;
+  source_url?: string;
+}
+
 export interface CustomDocumentResponse {
   success: boolean;
   document_id: string;
   message: string;
+  chunks_created: number;
 }
 
-export async function addCustomDocument(doc: CustomDocumentRequest): Promise<CustomDocumentResponse> {
-  const response = await apiClient.post('/ingestion/documents/custom', doc);
+export async function addCustomDocument(
+  document: CustomDocumentRequest
+): Promise<CustomDocumentResponse> {
+  const response = await apiClient.post('/ingestion/documents/custom', document);
   return response.data;
 }
