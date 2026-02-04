@@ -9,6 +9,7 @@ from src.services.auth import (
     SessionNotFoundError,
     SessionTimeoutError,
     TokenExpiredError,
+    UserAlreadyExistsError,
 )
 from src.services.knowledge import KnowledgeService
 from src.services.query_processor import QueryProcessor
@@ -23,6 +24,7 @@ __all__ = [
     "AccountLockedError",
     "SessionTimeoutError",
     "SessionNotFoundError",
+    "UserAlreadyExistsError",
     "KnowledgeService",
     "StubbedKnowledgeService",
     "QueryProcessor",
