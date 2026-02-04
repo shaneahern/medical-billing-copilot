@@ -2,9 +2,10 @@
 
 This module provides REST API endpoints for managing the data ingestion pipeline.
 
-Requirements: 11.5, 11.6, 11.7
+Requirements: 11.5, 11.6, 11.7, 14.3, 14.4, 14.5
 """
 
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -18,11 +19,18 @@ from src.schemas.ingestion import (
     IngestionStatus,
 )
 from src.services.ingestion import IngestionOrchestrator
+from src.services.policy_database import (
+    PayerSupportStatus,
+    PolicyDatabase,
+    PolicyDatabaseStats,
+    PolicyFreshnessInfo,
+)
 
 router = APIRouter(prefix="/api/ingestion", tags=["ingestion"])
 
 # Global orchestrator instance (in production, use dependency injection)
 _orchestrator: Optional[IngestionOrchestrator] = None
+_policy_database: Optional[PolicyDatabase] = None
 
 
 def get_orchestrator() -> IngestionOrchestrator:
@@ -31,6 +39,14 @@ def get_orchestrator() -> IngestionOrchestrator:
     if _orchestrator is None:
         _orchestrator = IngestionOrchestrator()
     return _orchestrator
+
+
+def get_policy_database() -> PolicyDatabase:
+    """Get the policy database instance."""
+    global _policy_database
+    if _policy_database is None:
+        _policy_database = PolicyDatabase(persist_path="data/policy_db_state.json")
+    return _policy_database
 
 
 # Request/Response models
@@ -229,3 +245,159 @@ async def list_supported_payers(
                 "scrape_method": config.scrape_method,
             })
     return {"payers": payers}
+
+
+
+# ==================== Policy Freshness Endpoints (Requirements 14.3, 14.4, 14.5) ====================
+
+
+class PolicyFreshnessResponse(BaseModel):
+    """Response for policy freshness check."""
+    source: str
+    source_type: str
+    last_updated: Optional[datetime]
+    document_count: int
+    is_fresh: bool
+    freshness_threshold_days: int
+    days_since_update: Optional[int]
+
+
+class PayerSupportResponse(BaseModel):
+    """Response for payer support check."""
+    payer_id: str
+    payer_name: str
+    is_supported: bool
+    document_count: int
+    last_updated: Optional[datetime]
+    coverage_areas: list[str]
+    message: Optional[str] = None
+
+
+@router.get("/policy/freshness/{source}", response_model=PolicyFreshnessResponse)
+async def get_policy_freshness(
+    source: str,
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> PolicyFreshnessResponse:
+    """Get freshness information for a policy source.
+    
+    Requirements: 14.3, 14.4
+    
+    Args:
+        source: The policy source (e.g., 'medicare', 'aetna', 'unitedhealthcare').
+        
+    Returns:
+        PolicyFreshnessResponse with freshness status and last-updated date.
+    """
+    info = policy_db.get_freshness_info(source)
+    return PolicyFreshnessResponse(
+        source=info.source,
+        source_type=info.source_type,
+        last_updated=info.last_updated,
+        document_count=info.document_count,
+        is_fresh=info.is_fresh,
+        freshness_threshold_days=info.freshness_threshold_days,
+        days_since_update=info.days_since_update,
+    )
+
+
+@router.get("/policy/payer/{payer_id}/support", response_model=PayerSupportResponse)
+async def check_payer_support(
+    payer_id: str,
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> PayerSupportResponse:
+    """Check if a payer is supported in the policy database.
+    
+    Requirements: 14.5
+    
+    Args:
+        payer_id: The payer identifier.
+        
+    Returns:
+        PayerSupportResponse with support status and message if not supported.
+    """
+    status = policy_db.get_payer_support_status(payer_id)
+    message = None
+    if not status.is_supported:
+        message = policy_db.get_unsupported_payer_message(payer_id)
+    
+    return PayerSupportResponse(
+        payer_id=status.payer_id,
+        payer_name=status.payer_name,
+        is_supported=status.is_supported,
+        document_count=status.document_count,
+        last_updated=status.last_updated,
+        coverage_areas=status.coverage_areas,
+        message=message,
+    )
+
+
+@router.get("/policy/payers/supported", response_model=list[PayerSupportResponse])
+async def list_supported_payers_with_status(
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> list[PayerSupportResponse]:
+    """List all supported payers with their status.
+    
+    Requirements: 14.5
+    
+    Returns:
+        List of PayerSupportResponse for all supported payers.
+    """
+    payers = policy_db.get_supported_payers()
+    return [
+        PayerSupportResponse(
+            payer_id=p.payer_id,
+            payer_name=p.payer_name,
+            is_supported=p.is_supported,
+            document_count=p.document_count,
+            last_updated=p.last_updated,
+            coverage_areas=p.coverage_areas,
+        )
+        for p in payers
+    ]
+
+
+@router.get("/policy/stats", response_model=PolicyDatabaseStats)
+async def get_policy_database_stats(
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> PolicyDatabaseStats:
+    """Get overall statistics about the policy database.
+    
+    Returns:
+        PolicyDatabaseStats with database statistics.
+    """
+    return policy_db.get_statistics()
+
+
+@router.get("/policy/mac-regions")
+async def list_mac_regions(
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> dict:
+    """List all MAC regions with coverage status.
+    
+    Returns:
+        Dictionary with MAC region information.
+    """
+    regions = policy_db.get_mac_regions()
+    coverage = []
+    for region in regions:
+        region_coverage = policy_db.get_mac_region_coverage(region["id"])
+        coverage.append(region_coverage)
+    
+    return {
+        "mac_regions": coverage,
+        "total_regions": len(regions),
+    }
+
+
+@router.get("/policy/verify-coverage")
+async def verify_common_procedures_coverage(
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> dict:
+    """Verify coverage of common procedures in the database.
+    
+    Requirements: 14.1
+    
+    Returns:
+        Dictionary with verification results.
+    """
+    return policy_db.verify_common_procedures_coverage()
