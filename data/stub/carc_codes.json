@@ -1,0 +1,181 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-02-01T00:00:00Z",
+    "description": "Claim Adjustment Reason Codes (CARC) with explanations"
+  },
+  "carc_codes": [
+    {
+      "code": "1",
+      "category": "CODING",
+      "short_description": "Deductible Amount",
+      "detailed_explanation": "The deductible amount is the portion of the allowed amount that the patient is responsible for paying before insurance coverage begins. This is not a denial but rather a patient responsibility adjustment.",
+      "common_causes": [
+        "Patient has not met annual deductible",
+        "Service applied to deductible period",
+        "High-deductible health plan"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Bill patient for deductible amount", "details": "Send patient statement for the deductible portion"},
+        {"priority": 2, "action": "Verify deductible status", "details": "Check if patient has met deductible with other claims"}
+      ],
+      "related_codes": ["2", "3"]
+    },
+    {
+      "code": "2",
+      "category": "ELIGIBILITY",
+      "short_description": "Coinsurance Amount",
+      "detailed_explanation": "The coinsurance amount represents the patient's share of the allowed amount after the deductible has been met. This is typically a percentage of the allowed amount.",
+      "common_causes": [
+        "Standard cost-sharing arrangement",
+        "In-network vs out-of-network coinsurance rates",
+        "Plan-specific coinsurance requirements"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Bill patient for coinsurance", "details": "Send patient statement for coinsurance amount"},
+        {"priority": 2, "action": "Verify coinsurance percentage", "details": "Confirm correct coinsurance rate was applied"}
+      ],
+      "related_codes": ["1", "3"]
+    },
+    {
+      "code": "4",
+      "category": "CODING",
+      "short_description": "Procedure code inconsistent with modifier",
+      "detailed_explanation": "The procedure code submitted is not consistent with the modifier used, or a required modifier is missing. Modifiers provide additional information about the service performed.",
+      "common_causes": [
+        "Missing required modifier (e.g., -25, -59)",
+        "Incorrect modifier for the procedure",
+        "Modifier not applicable to the CPT code"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Review modifier requirements", "details": "Check LCD/NCD for required modifiers"},
+        {"priority": 2, "action": "Correct and resubmit", "details": "Add or correct modifier and resubmit claim"},
+        {"priority": 3, "action": "Appeal if appropriate", "details": "If modifier was correct, submit appeal with documentation"}
+      ],
+      "related_codes": ["5", "97"]
+    },
+    {
+      "code": "16",
+      "category": "ELIGIBILITY",
+      "short_description": "Claim lacks information needed for adjudication",
+      "detailed_explanation": "The claim is missing information that is required for the payer to process and adjudicate the claim. This could include patient demographics, provider information, or clinical details.",
+      "common_causes": [
+        "Missing or invalid patient ID",
+        "Incomplete provider information",
+        "Missing diagnosis codes",
+        "Invalid date of service"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Review claim for completeness", "details": "Check all required fields are populated"},
+        {"priority": 2, "action": "Obtain missing information", "details": "Contact patient or referring provider for missing data"},
+        {"priority": 3, "action": "Resubmit corrected claim", "details": "Submit claim with all required information"}
+      ],
+      "related_codes": ["18", "252"]
+    },
+    {
+      "code": "18",
+      "category": "ELIGIBILITY",
+      "short_description": "Duplicate claim/service",
+      "detailed_explanation": "An exact duplicate claim or service line was already processed. The payer has already adjudicated this claim and will not pay twice for the same service.",
+      "common_causes": [
+        "Claim submitted multiple times",
+        "Electronic and paper claim both submitted",
+        "Clearinghouse resubmission error"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Check payment history", "details": "Verify if original claim was paid"},
+        {"priority": 2, "action": "Review submission records", "details": "Check for duplicate submissions in billing system"},
+        {"priority": 3, "action": "Contact payer if not duplicate", "details": "If services were distinct, appeal with documentation"}
+      ],
+      "related_codes": ["16"]
+    },
+    {
+      "code": "29",
+      "category": "ELIGIBILITY",
+      "short_description": "Time limit for filing has expired",
+      "detailed_explanation": "The claim was not submitted within the payer's timely filing deadline. Most payers require claims to be submitted within 90-365 days from the date of service.",
+      "common_causes": [
+        "Claim submitted after filing deadline",
+        "Delayed receipt of required information",
+        "Coordination of benefits delays"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Verify filing deadline", "details": "Check payer-specific timely filing requirements"},
+        {"priority": 2, "action": "Appeal if extenuating circumstances", "details": "Submit appeal with proof of timely filing or valid reason for delay"},
+        {"priority": 3, "action": "Write off if deadline truly missed", "details": "Adjust claim if no valid appeal basis exists"}
+      ],
+      "related_codes": []
+    },
+    {
+      "code": "50",
+      "category": "DOCUMENTATION",
+      "short_description": "Non-covered service",
+      "detailed_explanation": "The service is not covered under the patient's benefit plan. This may be due to plan exclusions, service limitations, or the service not being a covered benefit.",
+      "common_causes": [
+        "Service excluded from plan benefits",
+        "Experimental or investigational service",
+        "Cosmetic procedure",
+        "Service not medically necessary"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Verify coverage", "details": "Check patient's benefit plan for covered services"},
+        {"priority": 2, "action": "Review medical necessity", "details": "Ensure documentation supports medical necessity"},
+        {"priority": 3, "action": "Bill patient if appropriate", "details": "If ABN was obtained, bill patient for non-covered service"}
+      ],
+      "related_codes": ["96", "97"]
+    },
+    {
+      "code": "96",
+      "category": "DOCUMENTATION",
+      "short_description": "Non-covered charge(s)",
+      "detailed_explanation": "The charge is not covered because it exceeds the fee schedule, maximum allowable, or contracted rate. The difference between billed and allowed amounts is not payable.",
+      "common_causes": [
+        "Billed amount exceeds fee schedule",
+        "Out-of-network provider rates",
+        "Non-participating provider adjustment"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Review fee schedule", "details": "Verify allowed amount for the service"},
+        {"priority": 2, "action": "Adjust billing", "details": "Write off amount exceeding allowed amount"},
+        {"priority": 3, "action": "Bill patient if applicable", "details": "Bill patient for non-covered portion if permitted"}
+      ],
+      "related_codes": ["50", "97"]
+    },
+    {
+      "code": "97",
+      "category": "CODING",
+      "short_description": "Payment adjusted - not authorized",
+      "detailed_explanation": "The service was not authorized by the payer. Prior authorization was required but not obtained, or the authorization was invalid or expired.",
+      "common_causes": [
+        "Prior authorization not obtained",
+        "Authorization expired before service date",
+        "Service performed differs from authorized service",
+        "Wrong authorization number submitted"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Verify authorization status", "details": "Check if authorization was obtained and valid"},
+        {"priority": 2, "action": "Request retroactive authorization", "details": "Some payers allow retro-auth for emergent services"},
+        {"priority": 3, "action": "Appeal with clinical documentation", "details": "Submit appeal demonstrating medical necessity"}
+      ],
+      "related_codes": ["4", "50"]
+    },
+    {
+      "code": "197",
+      "category": "AUTHORIZATION",
+      "short_description": "Precertification/authorization absent",
+      "detailed_explanation": "The required precertification or prior authorization was not obtained before the service was rendered. The payer requires advance approval for this service.",
+      "common_causes": [
+        "Prior authorization not requested",
+        "Emergency service without follow-up authorization",
+        "Authorization request denied",
+        "Service not on authorization"
+      ],
+      "recommended_actions": [
+        {"priority": 1, "action": "Check authorization requirements", "details": "Verify if service requires prior auth"},
+        {"priority": 2, "action": "Request retroactive authorization", "details": "Submit retro-auth request if allowed by payer"},
+        {"priority": 3, "action": "Appeal with medical records", "details": "Demonstrate medical necessity and urgency"}
+      ],
+      "related_codes": ["97"]
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-02-01T00:00:00Z",
+    "description": "CPT-to-ICD coverage mappings for common procedure/diagnosis combinations"
+  },
+  "coverage": [
+    {
+      "cpt_code": "99213",
+      "description": "Office or other outpatient visit, established patient, low complexity",
+      "payer": "Medicare",
+      "icd_mappings": [
+        {"icd_code": "J06.9", "is_covered": true, "conditions": ["Documentation must support medical necessity"]},
+        {"icd_code": "J20.9", "is_covered": true, "conditions": ["Documentation must support medical necessity"]},
+        {"icd_code": "R05.9", "is_covered": true, "conditions": ["Must document underlying cause evaluation"]},
+        {"icd_code": "I10", "is_covered": true, "conditions": ["Appropriate for routine hypertension management"]},
+        {"icd_code": "E11.9", "is_covered": true, "conditions": ["Appropriate for diabetes management visit"]}
+      ]
+    },
+    {
+      "cpt_code": "99214",
+      "description": "Office or other outpatient visit, established patient, moderate complexity",
+      "payer": "Medicare",
+      "icd_mappings": [
+        {"icd_code": "J06.9", "is_covered": true, "conditions": ["Must document moderate complexity decision making"]},
+        {"icd_code": "J20.9", "is_covered": true, "conditions": ["Appropriate for complicated bronchitis"]},
+        {"icd_code": "I10", "is_covered": true, "conditions": ["Appropriate for hypertension with complications"]},
+        {"icd_code": "E11.9", "is_covered": true, "conditions": ["Appropriate for diabetes with management changes"]},
+        {"icd_code": "M54.5", "is_covered": true, "conditions": ["Must document examination and treatment plan"]}
+      ]
+    },
+    {
+      "cpt_code": "99215",
+      "description": "Office or other outpatient visit, established patient, high complexity",
+      "payer": "Medicare",
+      "icd_mappings": [
+        {"icd_code": "I10", "is_covered": true, "conditions": ["Must document high complexity decision making", "Multiple comorbidities or treatment changes"]},
+        {"icd_code": "E11.9", "is_covered": true, "conditions": ["Appropriate for complex diabetes management", "Must document extensive evaluation"]},
+        {"icd_code": "F32.9", "is_covered": true, "conditions": ["Appropriate for complex mental health evaluation"]},
+        {"icd_code": "M54.5", "is_covered": true, "conditions": ["Must document high complexity workup"]}
+      ]
+    },
+    {
+      "cpt_code": "99213",
+      "description": "Office or other outpatient visit, established patient, low complexity",
+      "payer": "Aetna",
+      "icd_mappings": [
+        {"icd_code": "J06.9", "is_covered": true, "conditions": ["Standard E/M documentation required"]},
+        {"icd_code": "J20.9", "is_covered": true, "conditions": ["Standard E/M documentation required"]},
+        {"icd_code": "R05.9", "is_covered": true, "conditions": ["Standard E/M documentation required"]},
+        {"icd_code": "I10", "is_covered": true, "conditions": ["Standard E/M documentation required"]},
+        {"icd_code": "E11.9", "is_covered": true, "conditions": ["Standard E/M documentation required"]}
+      ]
+    },
+    {
+      "cpt_code": "99214",
+      "description": "Office or other outpatient visit, established patient, moderate complexity",
+      "payer": "Aetna",
+      "icd_mappings": [
+        {"icd_code": "J06.9", "is_covered": true, "conditions": ["Documentation must support moderate complexity"]},
+        {"icd_code": "J20.9", "is_covered": true, "conditions": ["Documentation must support moderate complexity"]},
+        {"icd_code": "I10", "is_covered": true, "conditions": ["Documentation must support moderate complexity"]},
+        {"icd_code": "E11.9", "is_covered": true, "conditions": ["Documentation must support moderate complexity"]},
+        {"icd_code": "M54.5", "is_covered": true, "conditions": ["Documentation must support moderate complexity"]}
+      ]
+    },
+    {
+      "cpt_code": "99215",
+      "description": "Office or other outpatient visit, established patient, high complexity",
+      "payer": "Aetna",
+      "icd_mappings": [
+        {"icd_code": "I10", "is_covered": true, "conditions": ["Must document high complexity medical decision making"]},
+        {"icd_code": "E11.9", "is_covered": true, "conditions": ["Must document high complexity medical decision making"]},
+        {"icd_code": "F32.9", "is_covered": true, "conditions": ["Must document high complexity medical decision making"]},
+        {"icd_code": "M54.5", "is_covered": true, "conditions": ["Must document high complexity medical decision making"]}
+      ]
+    },
+    {
+      "cpt_code": "99213",
+      "description": "Office or other outpatient visit, established patient, low complexity",
+      "payer": "UnitedHealthcare",
+      "icd_mappings": [
+        {"icd_code": "J06.9", "is_covered": true, "conditions": ["Per UHC E/M guidelines"]},
+        {"icd_code": "J20.9", "is_covered": true, "conditions": ["Per UHC E/M guidelines"]},
+        {"icd_code": "R05.9", "is_covered": true, "conditions": ["Per UHC E/M guidelines"]},
+        {"icd_code": "I10", "is_covered": true, "conditions": ["Per UHC E/M guidelines"]},
+        {"icd_code": "E11.9", "is_covered": true, "conditions": ["Per UHC E/M guidelines"]}
+      ]
+    },
+    {
+      "cpt_code": "99214",
+      "description": "Office or other outpatient visit, established patient, moderate complexity",
+      "payer": "UnitedHealthcare",
+      "icd_mappings": [
+        {"icd_code": "J06.9", "is_covered": true, "conditions": ["Documentation must support level of service"]},
+        {"icd_code": "J20.9", "is_covered": true, "conditions": ["Documentation must support level of service"]},
+        {"icd_code": "I10", "is_covered": true, "conditions": ["Documentation must support level of service"]},
+        {"icd_code": "E11.9", "is_covered": true, "conditions": ["Documentation must support level of service"]},
+        {"icd_code": "M54.5", "is_covered": true, "conditions": ["Documentation must support level of service"]}
+      ]
+    },
+    {
+      "cpt_code": "99215",
+      "description": "Office or other outpatient visit, established patient, high complexity",
+      "payer": "UnitedHealthcare",
+      "icd_mappings": [
+        {"icd_code": "I10", "is_covered": true, "conditions": ["High complexity MDM documentation required"]},
+        {"icd_code": "E11.9", "is_covered": true, "conditions": ["High complexity MDM documentation required"]},
+        {"icd_code": "F32.9", "is_covered": true, "conditions": ["High complexity MDM documentation required"]},
+        {"icd_code": "M54.5", "is_covered": true, "conditions": ["High complexity MDM documentation required"]}
+      ]
+    },
+    {
+      "cpt_code": "27447",
+      "description": "Arthroplasty, knee, condyle and plateau; medial AND lateral compartments",
+      "payer": "Medicare",
+      "icd_mappings": [
+        {"icd_code": "M17.11", "is_covered": true, "conditions": ["Primary osteoarthritis, right knee", "Conservative treatment failure documented"]},
+        {"icd_code": "M17.12", "is_covered": true, "conditions": ["Primary osteoarthritis, left knee", "Conservative treatment failure documented"]},
+        {"icd_code": "M17.0", "is_covered": true, "conditions": ["Bilateral primary osteoarthritis", "Conservative treatment failure documented"]}
+      ]
+    },
+    {
+      "cpt_code": "70553",
+      "description": "MRI brain with and without contrast",
+      "payer": "Medicare",
+      "icd_mappings": [
+        {"icd_code": "G43.909", "is_covered": true, "conditions": ["Migraine evaluation", "Must document clinical indication"]},
+        {"icd_code": "R51.9", "is_covered": true, "conditions": ["Headache evaluation", "Must document red flag symptoms or treatment failure"]},
+        {"icd_code": "G40.909", "is_covered": true, "conditions": ["Seizure evaluation", "Medically necessary for new onset or change"]}
+      ]
+    }
+  ],
+  "payers": [
+    {"payer_id": "MEDICARE", "name": "Medicare", "type": "government"},
+    {"payer_id": "AETNA", "name": "Aetna", "type": "commercial"},
+    {"payer_id": "UHC", "name": "UnitedHealthcare", "type": "commercial"},
+    {"payer_id": "CIGNA", "name": "Cigna", "type": "commercial"},
+    {"payer_id": "HUMANA", "name": "Humana", "type": "commercial"}
+  ]
+}

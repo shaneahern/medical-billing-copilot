@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-02-01T00:00:00Z",
+    "description": "Medicare Administrative Contractor (MAC) regions"
+  },
+  "mac_regions": [
+    {
+      "mac_id": "NOVITAS",
+      "mac_name": "Novitas Solutions",
+      "states": ["AR", "CO", "LA", "MS", "NM", "OK", "TX"],
+      "jurisdictions": ["JH", "JL"]
+    },
+    {
+      "mac_id": "PALMETTO",
+      "mac_name": "Palmetto GBA",
+      "states": ["NC", "SC", "VA", "WV"],
+      "jurisdictions": ["JM", "J11"]
+    },
+    {
+      "mac_id": "CGS",
+      "mac_name": "CGS Administrators",
+      "states": ["KY", "OH"],
+      "jurisdictions": ["J15"]
+    }
+  ]
+}

@@ -10,6 +10,8 @@ from src.services.auth import (
     SessionTimeoutError,
     TokenExpiredError,
 )
+from src.services.knowledge import KnowledgeService
+from src.services.stubbed_knowledge import StubbedKnowledgeService
 
 __all__ = [
     "AuthService",
@@ -20,4 +22,6 @@ __all__ = [
     "AccountLockedError",
     "SessionTimeoutError",
     "SessionNotFoundError",
+    "KnowledgeService",
+    "StubbedKnowledgeService",
 ]

@@ -1,0 +1,192 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-02-01T00:00:00Z",
+    "description": "Prior authorization requirements for Medicare, Aetna, and UnitedHealthcare"
+  },
+  "prior_auth": [
+    {
+      "cpt_code": "99213",
+      "payer": "Medicare",
+      "is_required": false,
+      "plan_variations": null,
+      "submission_requirements": null,
+      "typical_turnaround": null,
+      "urgent_exceptions": null,
+      "contact_info": "1-800-MEDICARE"
+    },
+    {
+      "cpt_code": "99214",
+      "payer": "Medicare",
+      "is_required": false,
+      "plan_variations": null,
+      "submission_requirements": null,
+      "typical_turnaround": null,
+      "urgent_exceptions": null,
+      "contact_info": "1-800-MEDICARE"
+    },
+    {
+      "cpt_code": "99215",
+      "payer": "Medicare",
+      "is_required": false,
+      "plan_variations": null,
+      "submission_requirements": null,
+      "typical_turnaround": null,
+      "urgent_exceptions": null,
+      "contact_info": "1-800-MEDICARE"
+    },
+    {
+      "cpt_code": "27447",
+      "payer": "Medicare",
+      "is_required": true,
+      "plan_variations": [
+        {"plan_type": "Original Medicare", "is_required": false, "notes": "No prior auth for Original Medicare"},
+        {"plan_type": "Medicare Advantage", "is_required": true, "notes": "Most MA plans require prior auth"}
+      ],
+      "submission_requirements": [
+        "Clinical documentation supporting medical necessity",
+        "Conservative treatment history (6+ months)",
+        "X-ray or MRI imaging results",
+        "BMI documentation if applicable"
+      ],
+      "typical_turnaround": "5-7 business days",
+      "urgent_exceptions": ["Acute fracture", "Tumor resection", "Infection requiring immediate intervention"],
+      "contact_info": "Contact specific Medicare Advantage plan"
+    },
+    {
+      "cpt_code": "99213",
+      "payer": "Aetna",
+      "is_required": false,
+      "plan_variations": null,
+      "submission_requirements": null,
+      "typical_turnaround": null,
+      "urgent_exceptions": null,
+      "contact_info": "1-800-US-AETNA"
+    },
+    {
+      "cpt_code": "99214",
+      "payer": "Aetna",
+      "is_required": false,
+      "plan_variations": null,
+      "submission_requirements": null,
+      "typical_turnaround": null,
+      "urgent_exceptions": null,
+      "contact_info": "1-800-US-AETNA"
+    },
+    {
+      "cpt_code": "99215",
+      "payer": "Aetna",
+      "is_required": false,
+      "plan_variations": null,
+      "submission_requirements": null,
+      "typical_turnaround": null,
+      "urgent_exceptions": null,
+      "contact_info": "1-800-US-AETNA"
+    },
+    {
+      "cpt_code": "27447",
+      "payer": "Aetna",
+      "is_required": true,
+      "plan_variations": [
+        {"plan_type": "HMO", "is_required": true, "notes": "Requires referral and prior auth"},
+        {"plan_type": "PPO", "is_required": true, "notes": "Prior auth required"},
+        {"plan_type": "EPO", "is_required": true, "notes": "Prior auth required"}
+      ],
+      "submission_requirements": [
+        "Completed prior authorization form",
+        "Medical records documenting conservative treatment failure",
+        "Imaging studies (X-ray, MRI)",
+        "Physical therapy notes if applicable"
+      ],
+      "typical_turnaround": "3-5 business days",
+      "urgent_exceptions": ["Emergency surgery", "Acute trauma"],
+      "contact_info": "1-800-US-AETNA"
+    },
+    {
+      "cpt_code": "70553",
+      "payer": "Aetna",
+      "is_required": true,
+      "plan_variations": [
+        {"plan_type": "HMO", "is_required": true, "notes": "All advanced imaging requires prior auth"},
+        {"plan_type": "PPO", "is_required": true, "notes": "Prior auth required for outpatient MRI"},
+        {"plan_type": "EPO", "is_required": true, "notes": "Prior auth required"}
+      ],
+      "submission_requirements": [
+        "Clinical indication for MRI",
+        "Prior imaging results if applicable",
+        "Referring physician information"
+      ],
+      "typical_turnaround": "24-48 hours",
+      "urgent_exceptions": ["Suspected stroke", "Acute neurological symptoms", "Cancer staging"],
+      "contact_info": "1-800-US-AETNA"
+    },
+    {
+      "cpt_code": "99213",
+      "payer": "UnitedHealthcare",
+      "is_required": false,
+      "plan_variations": null,
+      "submission_requirements": null,
+      "typical_turnaround": null,
+      "urgent_exceptions": null,
+      "contact_info": "1-800-328-5979"
+    },
+    {
+      "cpt_code": "99214",
+      "payer": "UnitedHealthcare",
+      "is_required": false,
+      "plan_variations": null,
+      "submission_requirements": null,
+      "typical_turnaround": null,
+      "urgent_exceptions": null,
+      "contact_info": "1-800-328-5979"
+    },
+    {
+      "cpt_code": "99215",
+      "payer": "UnitedHealthcare",
+      "is_required": false,
+      "plan_variations": null,
+      "submission_requirements": null,
+      "typical_turnaround": null,
+      "urgent_exceptions": null,
+      "contact_info": "1-800-328-5979"
+    },
+    {
+      "cpt_code": "27447",
+      "payer": "UnitedHealthcare",
+      "is_required": true,
+      "plan_variations": [
+        {"plan_type": "Choice Plus", "is_required": true, "notes": "Prior auth required for all joint replacements"},
+        {"plan_type": "Options PPO", "is_required": true, "notes": "Prior auth required"},
+        {"plan_type": "Navigate", "is_required": true, "notes": "Referral and prior auth required"}
+      ],
+      "submission_requirements": [
+        "UnitedHealthcare prior authorization request form",
+        "Clinical notes documenting failed conservative treatment",
+        "Imaging reports",
+        "Surgical plan documentation"
+      ],
+      "typical_turnaround": "5-10 business days",
+      "urgent_exceptions": ["Emergent orthopedic conditions", "Acute fracture requiring arthroplasty"],
+      "contact_info": "1-800-328-5979"
+    },
+    {
+      "cpt_code": "70553",
+      "payer": "UnitedHealthcare",
+      "is_required": true,
+      "plan_variations": [
+        {"plan_type": "Choice Plus", "is_required": true, "notes": "Advanced imaging program applies"},
+        {"plan_type": "Options PPO", "is_required": true, "notes": "Prior auth through radiology benefit manager"},
+        {"plan_type": "Navigate", "is_required": true, "notes": "Referral and prior auth required"}
+      ],
+      "submission_requirements": [
+        "Clinical indication and symptoms",
+        "Duration of symptoms",
+        "Prior treatment attempts",
+        "Relevant prior imaging"
+      ],
+      "typical_turnaround": "24-72 hours",
+      "urgent_exceptions": ["Suspected CVA", "Acute neurological deficit", "Oncology staging"],
+      "contact_info": "1-800-328-5979"
+    }
+  ]
+}

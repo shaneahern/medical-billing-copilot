@@ -54,13 +54,13 @@ Tasks are ordered to enable incremental development with early validation of cor
     - **Property 16: Account lockout enforcement**
     - **Validates: Requirements 7.1, 7.5**
 
-- [ ] 3. Knowledge Service abstraction layer
-  - [ ] 3.1 Define KnowledgeService abstract base class
+- [x] 3. Knowledge Service abstraction layer
+  - [x] 3.1 Define KnowledgeService abstract base class
     - Create abstract methods: lookup_coverage, query_lcd, explain_denial_code, lookup_prior_auth
     - Define get_data_source_info method
     - _Requirements: 6.1, 6.3_
 
-  - [ ] 3.2 Create stubbed policy data JSON files
+  - [x] 3.2 Create stubbed policy data JSON files
     - Create sample Medicare LCDs for 3 MAC regions (Novitas, Palmetto, CGS)
     - Create sample NCDs for common procedures (99213, 99214, 99215)
     - Create CARC code definitions with explanations
@@ -68,7 +68,7 @@ Tasks are ordered to enable incremental development with early validation of cor
     - Create CPT-to-ICD coverage mappings
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-  - [ ] 3.3 Implement StubbedKnowledgeService
+  - [x] 3.3 Implement StubbedKnowledgeService
     - Load JSON stub files on initialization
     - Implement all KnowledgeService methods using stub data
     - Include data source indicator in responses

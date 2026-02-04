@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-02-01T00:00:00Z",
+    "description": "Sample National Coverage Determinations for common procedures"
+  },
+  "ncds": [
+    {
+      "ncd_id": "NCD-190.3",
+      "title": "Evaluation and Management Services - Office Visits",
+      "effective_date": "2024-01-01T00:00:00Z",
+      "covered_cpt_codes": ["99213", "99214", "99215"],
+      "covered_icd_codes": ["J06.9", "J20.9", "R05.9", "I10", "E11.9", "M54.5", "K21.0", "F32.9"],
+      "limitations": [
+        "Services must be reasonable and necessary for diagnosis or treatment",
+        "Documentation must support the level of service billed",
+        "Services must be within the scope of the provider's license"
+      ],
+      "source_url": "https://www.cms.gov/medicare-coverage-database/view/ncd.aspx?ncdid=190.3"
+    },
+    {
+      "ncd_id": "NCD-190.1",
+      "title": "Preventive Services - Annual Wellness Visit",
+      "effective_date": "2023-01-01T00:00:00Z",
+      "covered_cpt_codes": ["99381", "99391", "99385", "99395"],
+      "covered_icd_codes": ["Z00.00", "Z00.01"],
+      "limitations": [
+        "One annual wellness visit per 12-month period",
+        "Patient must be enrolled in Medicare Part B",
+        "Must include health risk assessment"
+      ],
+      "source_url": "https://www.cms.gov/medicare-coverage-database/view/ncd.aspx?ncdid=190.1"
+    }
+  ]
+}
