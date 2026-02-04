@@ -664,5 +664,13 @@ class QueryProcessor:
             citations_json=citations_json,
         )
         self.db.add(message)
+        
+        # Update session's last_activity and updated_at timestamps
+        session = self.db.query(Session).filter(Session.id == session_id).first()
+        if session:
+            now = datetime.now(timezone.utc)
+            session.last_activity = now
+            session.updated_at = now
+        
         self.db.commit()
         return message_id

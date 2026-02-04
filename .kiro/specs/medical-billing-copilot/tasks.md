@@ -128,20 +128,20 @@ Tasks are ordered to enable incremental development with early validation of cor
     - **Property 11: Prior auth response completeness**
     - **Validates: Requirements 1.1, 1.3, 2.1-2.5, 3.1-3.5, 4.1-4.5, 5.1-5.5**
 
-- [ ] 6. Session management
-  - [ ] 6.1 Implement session CRUD endpoints
+- [x] 6. Session management
+  - [x] 6.1 Implement session CRUD endpoints
     - POST /api/sessions - create new session
     - GET /api/sessions - list user sessions
     - GET /api/sessions/{id} - get session with messages
     - DELETE /api/sessions/{id} - delete session
     - _Requirements: 8.4, 8.5_
 
-  - [ ] 6.2 Implement conversation history storage
+  - [x] 6.2 Implement conversation history storage
     - Store messages in MessageRecord table
     - Maintain session context for follow-up queries
     - _Requirements: 1.4, 8.4_
 
-  - [ ] 6.3 Implement query audit logging
+  - [x] 6.3 Implement query audit logging
     - Log all queries to QueryLog table
     - Include user ID, session ID, query type, response time
     - _Requirements: 7.4_
@@ -152,7 +152,7 @@ Tasks are ordered to enable incremental development with early validation of cor
     - **Property 18: Session history isolation**
     - **Validates: Requirements 1.4, 7.4, 8.4, 8.5**
 
-- [ ] 7. Checkpoint - Backend complete
+- [x] 7. Checkpoint - Backend complete
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 8. React frontend
