@@ -158,6 +158,7 @@ def log_query(
 async def lookup_coverage(
     request: CoverageRequest,
     current_user: dict = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
     knowledge_service: StubbedKnowledgeService = Depends(get_knowledge_service),
 ) -> CoverageResult:
     """Look up coverage for a CPT code.
@@ -168,6 +169,8 @@ async def lookup_coverage(
     
     Requirements: 2.1, 2.2, 2.3, 2.4
     """
+    start_time = time.time()
+    
     params = CoverageLookupParams(
         cpt_code=request.cpt_code,
         icd_codes=request.icd_codes,
@@ -175,6 +178,20 @@ async def lookup_coverage(
     )
     
     result = await knowledge_service.lookup_coverage(params)
+    
+    # Log the query for audit (Requirement 7.4)
+    response_time_ms = int((time.time() - start_time) * 1000)
+    # Use a placeholder session_id for direct API calls
+    log_query(
+        db=db,
+        session_id="direct-api-call",
+        user_id=current_user["user_id"],
+        query=f"Coverage lookup: CPT={request.cpt_code}, ICD={request.icd_codes}, Payer={request.payer}",
+        query_type=QueryType.COVERAGE_LOOKUP,
+        response_time_ms=response_time_ms,
+        data_source=DataSource.STUBBED,
+    )
+    
     return result
 
 
@@ -184,6 +201,7 @@ async def query_lcd(
     cpt_code: Optional[str] = Query(None, pattern=r"^[0-9]{5}$", description="CPT code"),
     lcd_id: Optional[str] = Query(None, description="LCD identifier"),
     current_user: dict = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
     knowledge_service: StubbedKnowledgeService = Depends(get_knowledge_service),
 ) -> LCDResult | LCDPromptResponse:
     """Query Local Coverage Determination by MAC region.
@@ -194,6 +212,8 @@ async def query_lcd(
     
     Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
     """
+    start_time = time.time()
+    
     if not mac_region:
         # Prompt for region selection per Requirement 3.4
         return LCDPromptResponse(
@@ -210,6 +230,19 @@ async def query_lcd(
     
     try:
         result = await knowledge_service.query_lcd(params)
+        
+        # Log the query for audit (Requirement 7.4)
+        response_time_ms = int((time.time() - start_time) * 1000)
+        log_query(
+            db=db,
+            session_id="direct-api-call",
+            user_id=current_user["user_id"],
+            query=f"LCD query: MAC={mac_region}, CPT={cpt_code}, LCD_ID={lcd_id}",
+            query_type=QueryType.LCD_QUERY,
+            response_time_ms=response_time_ms,
+            data_source=DataSource.STUBBED,
+        )
+        
         return result
     except LookupError as e:
         raise HTTPException(
@@ -225,6 +258,7 @@ async def explain_denial_code(
     cpt_code: Optional[str] = Query(None, description="Related CPT code"),
     claim_type: Optional[str] = Query(None, description="Claim type"),
     current_user: dict = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
     knowledge_service: StubbedKnowledgeService = Depends(get_knowledge_service),
 ) -> DenialExplanation:
     """Explain a CARC denial code.
@@ -234,6 +268,8 @@ async def explain_denial_code(
     
     Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
     """
+    start_time = time.time()
+    
     context = DenialContext(
         payer=payer,
         cpt_code=cpt_code,
@@ -242,6 +278,19 @@ async def explain_denial_code(
     
     try:
         result = await knowledge_service.explain_denial_code(code, context)
+        
+        # Log the query for audit (Requirement 7.4)
+        response_time_ms = int((time.time() - start_time) * 1000)
+        log_query(
+            db=db,
+            session_id="direct-api-call",
+            user_id=current_user["user_id"],
+            query=f"Denial code explanation: CARC={code}, Payer={payer}, CPT={cpt_code}",
+            query_type=QueryType.DENIAL_EXPLANATION,
+            response_time_ms=response_time_ms,
+            data_source=DataSource.STUBBED,
+        )
+        
         return result
     except LookupError as e:
         raise HTTPException(
@@ -256,6 +305,7 @@ async def lookup_prior_auth(
     payer: str = Query(..., description="Payer name"),
     plan_type: Optional[str] = Query(None, description="Plan type"),
     current_user: dict = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
     knowledge_service: StubbedKnowledgeService = Depends(get_knowledge_service),
 ) -> PriorAuthResult:
     """Look up prior authorization requirements.
@@ -265,6 +315,8 @@ async def lookup_prior_auth(
     
     Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
     """
+    start_time = time.time()
+    
     params = PriorAuthParams(
         cpt_code=cpt_code,
         payer=payer,
@@ -272,6 +324,19 @@ async def lookup_prior_auth(
     )
     
     result = await knowledge_service.lookup_prior_auth(params)
+    
+    # Log the query for audit (Requirement 7.4)
+    response_time_ms = int((time.time() - start_time) * 1000)
+    log_query(
+        db=db,
+        session_id="direct-api-call",
+        user_id=current_user["user_id"],
+        query=f"Prior auth lookup: CPT={cpt_code}, Payer={payer}, Plan={plan_type}",
+        query_type=QueryType.PRIOR_AUTH,
+        response_time_ms=response_time_ms,
+        data_source=DataSource.STUBBED,
+    )
+    
     return result
 
 
