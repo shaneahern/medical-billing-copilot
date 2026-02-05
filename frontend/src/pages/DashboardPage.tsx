@@ -13,12 +13,22 @@ import {
   startScheduler,
   stopScheduler,
   addCustomDocument,
+  getPayerDocuments,
+  getMACRegionDocuments,
+  getCMSDataSources,
+  triggerCMSBulkDownload,
+  triggerCMSAPISync,
+  triggerCMSIncrementalUpdate,
+  getDocumentDetail,
   IngestionStats,
   PolicyDatabaseStats,
   PayerSupport,
   MACRegionCoverage,
   IngestionJob,
   CustomDocumentRequest,
+  DocumentInfo,
+  DocumentDetail,
+  CMSDataSourcesResponse,
 } from '../api/ingestion';
 
 // Stats Card Component
@@ -103,10 +113,70 @@ export function DashboardPage() {
     effective_date: '',
   });
 
+  // Document viewer modal state
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const [documentsModalTitle, setDocumentsModalTitle] = useState('');
+  const [documentsModalData, setDocumentsModalData] = useState<DocumentInfo[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+
+  // CMS data source state
+  const [cmsDataSources, setCMSDataSources] = useState<CMSDataSourcesResponse | null>(null);
+  const [showCMSOptions, setShowCMSOptions] = useState(false);
+  const [incrementalDays, setIncrementalDays] = useState(7);
+
+  // Document detail modal state
+  const [showDocumentDetail, setShowDocumentDetail] = useState(false);
+  const [documentDetail, setDocumentDetail] = useState<DocumentDetail | null>(null);
+  const [documentDetailLoading, setDocumentDetailLoading] = useState(false);
+
+  const handleViewDocumentDetail = async (documentId: string) => {
+    setShowDocumentDetail(true);
+    setDocumentDetailLoading(true);
+    try {
+      const detail = await getDocumentDetail(documentId);
+      setDocumentDetail(detail);
+    } catch (err) {
+      console.error('Failed to load document detail:', err);
+      setDocumentDetail(null);
+    } finally {
+      setDocumentDetailLoading(false);
+    }
+  };
+
+  const handleViewPayerDocuments = async (payerId: string, payerName: string) => {
+    setDocumentsModalTitle(`${payerName} Documents`);
+    setShowDocumentsModal(true);
+    setDocumentsLoading(true);
+    try {
+      const docs = await getPayerDocuments(payerId);
+      setDocumentsModalData(docs);
+    } catch (err) {
+      console.error('Failed to load documents:', err);
+      setDocumentsModalData([]);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
+  const handleViewMACRegionDocuments = async (macRegion: string, macName: string) => {
+    setDocumentsModalTitle(`${macName} (${macRegion}) Documents`);
+    setShowDocumentsModal(true);
+    setDocumentsLoading(true);
+    try {
+      const docs = await getMACRegionDocuments(macRegion);
+      setDocumentsModalData(docs);
+    } catch (err) {
+      console.error('Failed to load documents:', err);
+      setDocumentsModalData([]);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
   const loadData = useCallback(async () => {
     try {
       setError(null);
-      const [stats, policy, payerList, regions, jobList, running, scheduler] = await Promise.all([
+      const [stats, policy, payerList, regions, jobList, running, scheduler, cmsSources] = await Promise.all([
         getIngestionStats(),
         getPolicyDatabaseStats(),
         getSupportedPayers(),
@@ -114,6 +184,7 @@ export function DashboardPage() {
         getIngestionJobs(20),
         getRunningJobs(),
         getSchedulerStatus(),
+        getCMSDataSources().catch(() => null),
       ]);
       setIngestionStats(stats);
       setPolicyStats(policy);
@@ -122,6 +193,7 @@ export function DashboardPage() {
       setJobs(jobList);
       setRunningJobs(running);
       setSchedulerRunning(scheduler.running);
+      setCMSDataSources(cmsSources);
     } catch (err) {
       setError('Failed to load dashboard data');
       console.error(err);
@@ -141,9 +213,49 @@ export function DashboardPage() {
     setActionLoading('cms');
     try {
       await triggerCMSIngestion(undefined, docType);
+      setSuccessMessage('CMS ingestion started');
       await loadData();
     } catch (err) {
       setError('Failed to trigger CMS ingestion');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleTriggerCMSBulk = async () => {
+    setActionLoading('cms-bulk');
+    try {
+      await triggerCMSBulkDownload();
+      setSuccessMessage('CMS bulk download started - this may take a few minutes');
+      await loadData();
+    } catch (err) {
+      setError('Failed to trigger CMS bulk download');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleTriggerCMSAPI = async () => {
+    setActionLoading('cms-api');
+    try {
+      await triggerCMSAPISync();
+      setSuccessMessage('CMS API sync started');
+      await loadData();
+    } catch (err) {
+      setError('Failed to trigger CMS API sync');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleTriggerCMSIncremental = async () => {
+    setActionLoading('cms-incremental');
+    try {
+      const result = await triggerCMSIncrementalUpdate(incrementalDays);
+      setSuccessMessage(result.message);
+      await loadData();
+    } catch (err) {
+      setError('Failed to trigger CMS incremental update');
     } finally {
       setActionLoading(null);
     }
@@ -310,11 +422,14 @@ export function DashboardPage() {
                 {actionLoading === 'full' ? 'Running...' : 'Run Full Ingestion'}
               </button>
               <button
-                onClick={() => handleTriggerCMS()}
+                onClick={() => setShowCMSOptions(!showCMSOptions)}
                 disabled={actionLoading !== null}
-                className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {actionLoading === 'cms' ? 'Running...' : 'Ingest Medicare (LCDs + NCDs)'}
+                <span>Medicare Options</span>
+                <svg className={`w-4 h-4 transition-transform ${showCMSOptions ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
               <button
                 onClick={() => handleTriggerCommercial()}
@@ -339,6 +454,75 @@ export function DashboardPage() {
                   : 'Start Scheduler (24h)'}
               </button>
             </div>
+
+            {/* CMS Data Source Options */}
+            {showCMSOptions && (
+              <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <h3 className="text-sm font-semibold text-purple-900 mb-3">Medicare Data Source Options</h3>
+                <p className="text-xs text-purple-700 mb-4">
+                  {cmsDataSources?.recommendation || 'Choose a data source for Medicare coverage data ingestion.'}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <button
+                    onClick={handleTriggerCMSBulk}
+                    disabled={actionLoading !== null}
+                    className="px-3 py-2 bg-purple-700 text-white text-sm rounded-md hover:bg-purple-800 disabled:opacity-50"
+                  >
+                    {actionLoading === 'cms-bulk' ? 'Downloading...' : '📦 Bulk Download (Initial)'}
+                  </button>
+                  <button
+                    onClick={handleTriggerCMSAPI}
+                    disabled={actionLoading !== null}
+                    className="px-3 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    {actionLoading === 'cms-api' ? 'Syncing...' : '🔄 API Sync'}
+                  </button>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="90"
+                      value={incrementalDays}
+                      onChange={(e) => setIncrementalDays(parseInt(e.target.value) || 7)}
+                      className="w-16 px-2 py-2 border border-purple-300 rounded-md text-sm"
+                    />
+                    <button
+                      onClick={handleTriggerCMSIncremental}
+                      disabled={actionLoading !== null}
+                      className="flex-1 px-3 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600 disabled:opacity-50"
+                    >
+                      {actionLoading === 'cms-incremental' ? 'Updating...' : `⚡ Last ${incrementalDays}d`}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => handleTriggerCMS()}
+                    disabled={actionLoading !== null}
+                    className="px-3 py-2 bg-gray-500 text-white text-sm rounded-md hover:bg-gray-600 disabled:opacity-50"
+                  >
+                    {actionLoading === 'cms' ? 'Running...' : '🕸️ Web Scrape (Fallback)'}
+                  </button>
+                </div>
+                {cmsDataSources && (
+                  <div className="mt-3 text-xs text-purple-600">
+                    <details>
+                      <summary className="cursor-pointer hover:text-purple-800">View data source details</summary>
+                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {cmsDataSources.sources.map((source) => (
+                          <div key={source.id} className="p-2 bg-white rounded border border-purple-100">
+                            <div className="font-medium">{source.name}</div>
+                            <div className="text-gray-600">{source.description}</div>
+                            <div className="text-gray-500 mt-1">
+                              Update: {source.update_frequency} | Auth: {String(source.requires_auth)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </div>
+                )}
+              </div>
+            )}
+
             {runningJobs.length > 0 && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                 <div className="text-sm font-medium text-blue-800">
@@ -479,7 +663,18 @@ export function DashboardPage() {
                 <tbody className="divide-y divide-gray-200">
                   {macRegions.map((region) => (
                     <tr key={region.mac_region} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{region.mac_region}</td>
+                      <td className="px-4 py-3 text-sm font-medium">
+                        {region.document_count > 0 ? (
+                          <button
+                            onClick={() => handleViewMACRegionDocuments(region.mac_region, region.mac_name)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                          >
+                            {region.mac_region}
+                          </button>
+                        ) : (
+                          <span className="text-gray-900">{region.mac_region}</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{region.mac_name}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{region.document_count}</td>
                       <td className="px-4 py-3">
@@ -516,7 +711,18 @@ export function DashboardPage() {
                 <tbody className="divide-y divide-gray-200">
                   {payers.map((payer) => (
                     <tr key={payer.payer_id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{payer.payer_name}</td>
+                      <td className="px-4 py-3 text-sm font-medium">
+                        {payer.document_count > 0 ? (
+                          <button
+                            onClick={() => handleViewPayerDocuments(payer.payer_id, payer.payer_name)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                          >
+                            {payer.payer_name}
+                          </button>
+                        ) : (
+                          <span className="text-gray-900">{payer.payer_name}</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{payer.document_count}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {payer.last_updated
@@ -616,6 +822,185 @@ export function DashboardPage() {
           </div>
         </section>
       </main>
+
+      {/* Documents Modal */}
+      {showDocumentsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">{documentsModalTitle}</h3>
+              <button
+                onClick={() => setShowDocumentsModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              {documentsLoading ? (
+                <div className="text-center py-8 text-gray-500">Loading documents...</div>
+              ) : documentsModalData.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No documents found</div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effective Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {documentsModalData.map((doc) => (
+                      <tr key={doc.document_id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm">
+                          <button
+                            onClick={() => handleViewDocumentDetail(doc.document_id)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                          >
+                            {doc.title}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{doc.document_type}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {doc.effective_date
+                            ? new Date(doc.effective_date).toLocaleDateString()
+                            : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleViewDocumentDetail(doc.document_id)}
+                              className="text-blue-600 hover:text-blue-800 text-xs"
+                            >
+                              View Content
+                            </button>
+                            {doc.source_url && (
+                              <a
+                                href={doc.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-500 hover:text-gray-700 text-xs"
+                              >
+                                Source ↗
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setShowDocumentsModal(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Detail Modal */}
+      {showDocumentDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {documentDetail?.title || 'Document Details'}
+                </h3>
+                {documentDetail && (
+                  <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                    <span className="px-2 py-0.5 bg-gray-100 rounded">{documentDetail.document_type}</span>
+                    {documentDetail.payer && <span>Payer: {documentDetail.payer}</span>}
+                    {documentDetail.mac_region && <span>MAC: {documentDetail.mac_region}</span>}
+                    {documentDetail.effective_date && (
+                      <span>Effective: {new Date(documentDetail.effective_date).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setShowDocumentDetail(false);
+                  setDocumentDetail(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              {documentDetailLoading ? (
+                <div className="text-center py-8 text-gray-500">Loading document content...</div>
+              ) : !documentDetail ? (
+                <div className="text-center py-8 text-gray-500">Document not found</div>
+              ) : !documentDetail.has_content ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-500 mb-4">No extracted content available for this document.</div>
+                  {documentDetail.source_url && (
+                    <a
+                      href={documentDetail.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      View Original Source
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="prose prose-sm max-w-none">
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans leading-relaxed">
+                      {documentDetail.content}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+              <div>
+                {documentDetail?.source_url && (
+                  <a
+                    href={documentDetail.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  >
+                    View Original Source
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setShowDocumentDetail(false);
+                  setDocumentDetail(null);
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

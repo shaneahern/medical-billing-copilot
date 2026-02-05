@@ -67,6 +67,10 @@ class CoverageResult(BaseModel):
     payer_support_message: Optional[str] = Field(
         None, description="Message if payer is not supported"
     )
+    # Policy snippet from text search
+    policy_snippet: Optional[str] = Field(
+        None, description="Relevant snippet from policy document"
+    )
 
 
 # LCD-related schemas

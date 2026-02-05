@@ -205,3 +205,124 @@ export async function addCustomDocument(
   const response = await apiClient.post('/ingestion/documents/custom', document);
   return response.data;
 }
+
+
+// Document Listing Types
+export interface DocumentInfo {
+  document_id: string;
+  title: string;
+  document_type: string;
+  source_url: string;
+  payer?: string;
+  mac_region?: string;
+  effective_date?: string;
+  last_updated?: string;
+}
+
+export async function getPayerDocuments(payerId: string): Promise<DocumentInfo[]> {
+  const response = await apiClient.get(`/ingestion/policy/payer/${payerId}/documents`);
+  return response.data;
+}
+
+export async function getMACRegionDocuments(macRegion: string): Promise<DocumentInfo[]> {
+  const response = await apiClient.get(`/ingestion/policy/mac-region/${macRegion}/documents`);
+  return response.data;
+}
+
+
+// Document Detail Types
+export interface DocumentDetail {
+  document_id: string;
+  title: string;
+  document_type: string;
+  source_url?: string;
+  payer?: string;
+  mac_region?: string;
+  effective_date?: string;
+  last_updated?: string;
+  version?: string;
+  content?: string;
+  has_content: boolean;
+}
+
+export async function getDocumentDetail(documentId: string): Promise<DocumentDetail> {
+  const response = await apiClient.get(`/ingestion/policy/document/${documentId}`);
+  return response.data;
+}
+
+
+// CMS Data Source Types
+export type CMSDataSource = 'downloads' | 'api' | 'scraper' | 'stub';
+
+export interface CMSDataSourceInfo {
+  id: CMSDataSource;
+  name: string;
+  description: string;
+  url: string | null;
+  requires_auth: boolean | string;
+  update_frequency: string;
+  recommended_for: string;
+}
+
+export interface CMSDataSourcesResponse {
+  sources: CMSDataSourceInfo[];
+  current_default: CMSDataSource;
+  recommendation: string;
+}
+
+export interface CMSDataSourceResponse {
+  source: string;
+  documents_loaded: number;
+  message: string;
+}
+
+// CMS Data Source API Functions
+
+/**
+ * Get information about available CMS data sources.
+ */
+export async function getCMSDataSources(): Promise<CMSDataSourcesResponse> {
+  const response = await apiClient.get('/ingestion/cms/sources');
+  return response.data;
+}
+
+/**
+ * Trigger CMS bulk download ingestion.
+ * Uses MCD Downloads (ZIP files) for initial bulk data load.
+ */
+export async function triggerCMSBulkDownload(
+  macRegions?: string[]
+): Promise<IngestionJob> {
+  const response = await apiClient.post('/ingestion/trigger/cms/bulk', {
+    source: 'downloads',
+    mac_regions: macRegions,
+  });
+  return response.data;
+}
+
+/**
+ * Trigger CMS Coverage API ingestion.
+ * Uses the REST API for incremental updates.
+ */
+export async function triggerCMSAPISync(
+  macRegions?: string[]
+): Promise<IngestionJob> {
+  const response = await apiClient.post('/ingestion/trigger/cms/api', {
+    source: 'api',
+    mac_regions: macRegions,
+  });
+  return response.data;
+}
+
+/**
+ * Trigger incremental CMS update.
+ * Fetches only documents updated in the last N days.
+ */
+export async function triggerCMSIncrementalUpdate(
+  sinceDays = 7
+): Promise<CMSDataSourceResponse> {
+  const response = await apiClient.post('/ingestion/trigger/cms/incremental', {
+    since_days: sinceDays,
+  });
+  return response.data;
+}

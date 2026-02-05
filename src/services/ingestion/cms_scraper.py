@@ -1,7 +1,13 @@
 """CMS.gov scraper for Medicare LCDs and NCDs.
 
-This module implements web scraping for Medicare Local Coverage Determinations (LCDs)
+This module implements data ingestion for Medicare Local Coverage Determinations (LCDs)
 and National Coverage Determinations (NCDs) from CMS.gov.
+
+Supports multiple data sources:
+- MCD Downloads: Bulk ZIP files for initial data load (no API key required)
+- Coverage API: REST API for incremental updates (LCD endpoints require license token)
+- Web Scraping: Fallback for specific document retrieval
+- Stub Data: Development/testing fallback
 
 Requirements: 11.1
 """
@@ -27,14 +33,22 @@ from src.schemas.ingestion import (
 logger = logging.getLogger(__name__)
 
 
+class CMSDataSource:
+    """Enum-like class for CMS data sources."""
+    DOWNLOADS = "downloads"  # MCD bulk downloads
+    API = "api"              # Coverage API
+    SCRAPER = "scraper"      # Web scraping
+    STUB = "stub"            # Stub data fallback
+
+
 class CMSScraper:
     """Scraper for CMS.gov LCD and NCD documents.
     
-    This class handles:
-    - Searching for LCDs/NCDs on CMS.gov
-    - Extracting document content and metadata
-    - Handling pagination for large result sets
-    - Following document links to get full content
+    This class handles multiple data sources for Medicare coverage data:
+    - MCD Downloads: Bulk ZIP files for initial data load
+    - Coverage API: REST API for incremental updates
+    - Web Scraping: Fallback for specific document retrieval
+    - Stub Data: Development/testing fallback
     
     Requirements: 11.1
     """
@@ -76,6 +90,8 @@ class CMSScraper:
         timeout: float = 30.0,
         max_retries: int = 3,
         chunk_size: int = 1000,
+        api_license_token: Optional[str] = None,
+        preferred_source: str = CMSDataSource.DOWNLOADS,
     ):
         """Initialize the CMS scraper.
         
@@ -83,11 +99,19 @@ class CMSScraper:
             timeout: HTTP request timeout in seconds.
             max_retries: Maximum number of retry attempts.
             chunk_size: Target size for document chunks (in characters).
+            api_license_token: License token for CMS Coverage API (optional).
+            preferred_source: Preferred data source (downloads, api, scraper, stub).
         """
         self.timeout = timeout
         self.max_retries = max_retries
         self.chunk_size = chunk_size
+        self.api_license_token = api_license_token
+        self.preferred_source = preferred_source
         self._client: Optional[httpx.AsyncClient] = None
+        
+        # Lazy-loaded data source clients
+        self._api_client = None
+        self._downloads_parser = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""
@@ -103,11 +127,38 @@ class CMSScraper:
             )
         return self._client
 
+    def _get_api_client(self):
+        """Get or create the CMS Coverage API client."""
+        if self._api_client is None:
+            from src.services.ingestion.cms_api import CMSCoverageAPIClient
+            self._api_client = CMSCoverageAPIClient(
+                license_token=self.api_license_token,
+                timeout=self.timeout,
+                chunk_size=self.chunk_size,
+            )
+        return self._api_client
+
+    def _get_downloads_parser(self):
+        """Get or create the CMS Downloads parser."""
+        if self._downloads_parser is None:
+            from src.services.ingestion.cms_downloads import CMSDownloadsParser
+            self._downloads_parser = CMSDownloadsParser(
+                timeout=self.timeout * 4,  # Downloads need more time
+                chunk_size=self.chunk_size,
+            )
+        return self._downloads_parser
+
     async def close(self) -> None:
-        """Close the HTTP client."""
+        """Close all HTTP clients."""
         if self._client and not self._client.is_closed:
             await self._client.aclose()
             self._client = None
+        if self._api_client:
+            await self._api_client.close()
+            self._api_client = None
+        if self._downloads_parser:
+            await self._downloads_parser.close()
+            self._downloads_parser = None
 
     async def search_lcds(
         self, params: CMSSearchParams
@@ -271,58 +322,298 @@ class CMSScraper:
             raise
 
     async def scrape_all_lcds(
-        self, mac_regions: Optional[list[str]] = None
+        self, mac_regions: Optional[list[str]] = None, use_source: Optional[str] = None
     ) -> list[IngestedDocument]:
         """Scrape all LCDs for specified MAC regions.
         
+        Uses multiple data sources with fallback:
+        1. MCD Downloads (bulk) - preferred for initial load
+        2. Coverage API - for incremental updates
+        3. Web scraping - fallback
+        4. Stub data - development fallback
+        
         Args:
             mac_regions: List of MAC regions to scrape. If None, scrapes all.
+            use_source: Override preferred data source (downloads, api, scraper, stub).
             
         Returns:
             List of ingested LCD documents.
         """
-        regions = mac_regions or list(self.MAC_REGIONS.keys())
+        source = use_source or self.preferred_source
         all_documents: list[IngestedDocument] = []
         
-        for region in regions:
-            logger.info(f"Scraping LCDs for MAC region: {region}")
+        # Try MCD Downloads first (bulk initial load)
+        if source == CMSDataSource.DOWNLOADS:
+            logger.info("Attempting LCD ingestion via MCD Downloads...")
+            try:
+                parser = self._get_downloads_parser()
+                all_documents = await parser.download_and_parse_lcds()
+                if all_documents:
+                    logger.info(f"Successfully loaded {len(all_documents)} LCDs from MCD Downloads")
+                    # Filter by MAC region if specified
+                    if mac_regions:
+                        all_documents = [
+                            doc for doc in all_documents
+                            if doc.metadata.mac_region and any(
+                                region.lower() in doc.metadata.mac_region.lower()
+                                for region in mac_regions
+                            )
+                        ]
+                    return all_documents
+                else:
+                    logger.warning("MCD Downloads returned no LCDs, trying Coverage API...")
+            except Exception as e:
+                logger.warning(f"MCD Downloads failed: {e}, trying Coverage API...")
+        
+        # Try Coverage API (incremental updates or fallback from downloads)
+        if source in (CMSDataSource.API, CMSDataSource.DOWNLOADS) and not all_documents:
+            logger.info("Attempting LCD ingestion via Coverage API...")
+            try:
+                api_client = self._get_api_client()
+                regions = mac_regions or list(self.MAC_REGIONS.keys())
+                
+                for region in regions:
+                    try:
+                        docs = await api_client.fetch_final_lcds(mac_region=region, limit=500)
+                        all_documents.extend(docs)
+                        logger.info(f"Loaded {len(docs)} LCDs for region {region} from API")
+                    except Exception as e:
+                        logger.warning(f"API failed for region {region}: {e}")
+                        continue
+                
+                if all_documents:
+                    logger.info(f"Successfully loaded {len(all_documents)} LCDs from Coverage API")
+                    return all_documents
+                else:
+                    logger.warning("Coverage API returned no LCDs, trying web scraping...")
+            except Exception as e:
+                logger.warning(f"Coverage API failed: {e}, trying web scraping...")
+        
+        # Try web scraping (fallback)
+        if source in (CMSDataSource.SCRAPER, CMSDataSource.DOWNLOADS, CMSDataSource.API) and not all_documents:
+            logger.info("Attempting LCD ingestion via web scraping...")
+            regions = mac_regions or list(self.MAC_REGIONS.keys())
             
-            params = CMSSearchParams(mac_region=region, limit=500)
-            lcd_list = await self.search_lcds(params)
-            
-            for lcd_meta in lcd_list:
+            for region in regions:
+                logger.info(f"Scraping LCDs for MAC region: {region}")
+                
                 try:
-                    document = await self.fetch_lcd_content(
-                        lcd_meta.document_id, region
-                    )
-                    all_documents.append(document)
+                    params = CMSSearchParams(mac_region=region, limit=500)
+                    lcd_list = await self.search_lcds(params)
+                    
+                    for lcd_meta in lcd_list:
+                        try:
+                            document = await self.fetch_lcd_content(
+                                lcd_meta.document_id, region
+                            )
+                            all_documents.append(document)
+                        except Exception as e:
+                            logger.error(f"Failed to fetch LCD {lcd_meta.document_id}: {e}")
+                            continue
                 except Exception as e:
-                    logger.error(f"Failed to fetch LCD {lcd_meta.document_id}: {e}")
+                    logger.error(f"Failed to search LCDs for {region}: {e}")
                     continue
+        
+        # Use stub data as final fallback
+        if not all_documents:
+            logger.info("No LCDs from live sources, using stub data as fallback")
+            all_documents = self._load_stub_lcds()
         
         return all_documents
 
-    async def scrape_all_ncds(self) -> list[IngestedDocument]:
+    async def scrape_all_ncds(self, use_source: Optional[str] = None) -> list[IngestedDocument]:
         """Scrape all NCDs from CMS.gov.
         
+        Uses multiple data sources with fallback:
+        1. MCD Downloads (bulk) - preferred for initial load
+        2. Coverage API - for incremental updates
+        3. Web scraping - fallback
+        4. Stub data - development fallback
+        
+        Args:
+            use_source: Override preferred data source (downloads, api, scraper, stub).
+            
         Returns:
             List of ingested NCD documents.
         """
-        logger.info("Scraping all NCDs")
+        source = use_source or self.preferred_source
         all_documents: list[IngestedDocument] = []
         
-        params = CMSSearchParams(document_type=DocumentType.NCD, limit=500)
-        ncd_list = await self.search_ncds(params)
-        
-        for ncd_meta in ncd_list:
+        # Try MCD Downloads first (bulk initial load)
+        if source == CMSDataSource.DOWNLOADS:
+            logger.info("Attempting NCD ingestion via MCD Downloads...")
             try:
-                document = await self.fetch_ncd_content(ncd_meta.document_id)
-                all_documents.append(document)
+                parser = self._get_downloads_parser()
+                all_documents = await parser.download_and_parse_ncds()
+                if all_documents:
+                    logger.info(f"Successfully loaded {len(all_documents)} NCDs from MCD Downloads")
+                    return all_documents
+                else:
+                    logger.warning("MCD Downloads returned no NCDs, trying web scraping...")
             except Exception as e:
-                logger.error(f"Failed to fetch NCD {ncd_meta.document_id}: {e}")
-                continue
+                logger.warning(f"MCD Downloads failed: {e}, trying web scraping...")
+        
+        # Try web scraping (NCDs don't have a dedicated API endpoint)
+        if source in (CMSDataSource.SCRAPER, CMSDataSource.DOWNLOADS, CMSDataSource.API) and not all_documents:
+            logger.info("Attempting NCD ingestion via web scraping...")
+            try:
+                params = CMSSearchParams(document_type=DocumentType.NCD, limit=500)
+                ncd_list = await self.search_ncds(params)
+                
+                for ncd_meta in ncd_list:
+                    try:
+                        document = await self.fetch_ncd_content(ncd_meta.document_id)
+                        all_documents.append(document)
+                    except Exception as e:
+                        logger.error(f"Failed to fetch NCD {ncd_meta.document_id}: {e}")
+                        continue
+            except Exception as e:
+                logger.error(f"Failed to search NCDs: {e}")
+        
+        # Use stub data as final fallback
+        if not all_documents:
+            logger.info("No NCDs from live sources, using stub data as fallback")
+            all_documents = self._load_stub_ncds()
         
         return all_documents
+
+    async def incremental_update_lcds(
+        self, since_date: Optional[datetime] = None
+    ) -> list[IngestedDocument]:
+        """Fetch LCD updates since a given date using the Coverage API.
+        
+        This is optimized for incremental updates rather than bulk loading.
+        
+        Args:
+            since_date: Only fetch LCDs updated after this date.
+            
+        Returns:
+            List of updated LCD documents.
+        """
+        logger.info(f"Fetching LCD updates since {since_date}")
+        
+        try:
+            api_client = self._get_api_client()
+            all_documents: list[IngestedDocument] = []
+            
+            for region in self.MAC_REGIONS.keys():
+                docs = await api_client.fetch_final_lcds(mac_region=region, limit=100)
+                
+                # Filter by date if specified
+                if since_date:
+                    docs = [
+                        doc for doc in docs
+                        if doc.metadata.last_updated and doc.metadata.last_updated > since_date
+                    ]
+                
+                all_documents.extend(docs)
+            
+            logger.info(f"Found {len(all_documents)} LCD updates")
+            return all_documents
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch LCD updates: {e}")
+            return []
+
+    def _load_stub_lcds(self) -> list[IngestedDocument]:
+        """Load stub LCD data from JSON file."""
+        import json
+        from pathlib import Path
+        
+        stub_path = Path("data/stub/lcds.json")
+        if not stub_path.exists():
+            logger.warning("Stub LCD file not found")
+            return []
+        
+        try:
+            with open(stub_path, "r") as f:
+                data = json.load(f)
+            
+            documents = []
+            for lcd in data.get("lcds", []):
+                content = f"""
+Title: {lcd['title']}
+MAC Region: {lcd['mac_region']} ({lcd['mac_name']})
+Effective Date: {lcd['effective_date']}
+
+Covered CPT Codes: {', '.join(lcd.get('covered_cpt_codes', []))}
+Covered ICD Codes: {', '.join(lcd.get('covered_icd_codes', []))}
+
+Limitations:
+{chr(10).join('- ' + lim for lim in lcd.get('limitations', []))}
+
+Documentation Requirements:
+{chr(10).join('- ' + req for req in lcd.get('documentation_requirements', []))}
+"""
+                metadata = DocumentMetadata(
+                    document_id=lcd['lcd_id'],
+                    document_type=DocumentType.LCD,
+                    title=lcd['title'],
+                    source_url=lcd.get('source_url', self.build_lcd_url(lcd['lcd_id'])),
+                    mac_region=lcd['mac_region'],
+                    effective_date=datetime.fromisoformat(lcd['effective_date'].replace('Z', '+00:00')) if lcd.get('effective_date') else None,
+                    last_updated=datetime.utcnow(),
+                )
+                chunks = self._create_chunks(lcd['lcd_id'], content)
+                documents.append(IngestedDocument(
+                    metadata=metadata,
+                    content=content,
+                    chunks=chunks,
+                ))
+            
+            logger.info(f"Loaded {len(documents)} stub LCDs")
+            return documents
+        except Exception as e:
+            logger.error(f"Failed to load stub LCDs: {e}")
+            return []
+
+    def _load_stub_ncds(self) -> list[IngestedDocument]:
+        """Load stub NCD data from JSON file."""
+        import json
+        from pathlib import Path
+        
+        stub_path = Path("data/stub/ncds.json")
+        if not stub_path.exists():
+            logger.warning("Stub NCD file not found")
+            return []
+        
+        try:
+            with open(stub_path, "r") as f:
+                data = json.load(f)
+            
+            documents = []
+            for ncd in data.get("ncds", []):
+                content = f"""
+Title: {ncd['title']}
+NCD ID: {ncd['ncd_id']}
+Effective Date: {ncd.get('effective_date', 'N/A')}
+
+Covered CPT Codes: {', '.join(ncd.get('covered_cpt_codes', []))}
+Covered ICD Codes: {', '.join(ncd.get('covered_icd_codes', []))}
+
+Limitations:
+{chr(10).join('- ' + lim for lim in ncd.get('limitations', []))}
+"""
+                metadata = DocumentMetadata(
+                    document_id=ncd['ncd_id'],
+                    document_type=DocumentType.NCD,
+                    title=ncd['title'],
+                    source_url=ncd.get('source_url', f"{self.NCD_DETAIL_URL}?ncdId={ncd['ncd_id']}"),
+                    effective_date=datetime.fromisoformat(ncd['effective_date'].replace('Z', '+00:00')) if ncd.get('effective_date') else None,
+                    last_updated=datetime.utcnow(),
+                )
+                chunks = self._create_chunks(ncd['ncd_id'], content)
+                documents.append(IngestedDocument(
+                    metadata=metadata,
+                    content=content,
+                    chunks=chunks,
+                ))
+            
+            logger.info(f"Loaded {len(documents)} stub NCDs")
+            return documents
+        except Exception as e:
+            logger.error(f"Failed to load stub NCDs: {e}")
+            return []
 
     def _build_lcd_search_params(self, params: CMSSearchParams) -> dict:
         """Build query parameters for LCD search."""
