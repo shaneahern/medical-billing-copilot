@@ -3,7 +3,7 @@ import { Message, DataSource, Citation } from '../../types';
 import { QueryInput } from './QueryInput';
 import { ResponseDisplay } from './ResponseDisplay';
 import { DataSourceIndicator } from '../common/DataSourceIndicator';
-import { queryApi } from '../../api/query';
+import { queryApi, DataSourceInfo } from '../../api/query';
 
 interface ChatInterfaceProps {
   sessionId: string;
@@ -15,6 +15,7 @@ export function ChatInterface({ sessionId, initialMessages = [], onNewSession }:
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
   const [dataSource, setDataSource] = useState<DataSource>('STUBBED');
+  const [dataSourceInfo, setDataSourceInfo] = useState<DataSourceInfo | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,6 +25,20 @@ export function ChatInterface({ sessionId, initialMessages = [], onNewSession }:
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Fetch data source info on mount
+  useEffect(() => {
+    const fetchDataSourceInfo = async () => {
+      try {
+        const info = await queryApi.getDataSourceInfo();
+        setDataSourceInfo(info);
+        setDataSource(info.type as DataSource);
+      } catch (error) {
+        console.error('Failed to fetch data source info:', error);
+      }
+    };
+    fetchDataSourceInfo();
+  }, []);
 
   const handleSubmit = async (query: string) => {
     const userMessage: Message = {
@@ -66,7 +81,11 @@ export function ChatInterface({ sessionId, initialMessages = [], onNewSession }:
       <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Medical Billing Assistant</h2>
-          <DataSourceIndicator dataSource={dataSource} />
+          <DataSourceIndicator 
+            dataSource={dataSource} 
+            isLive={dataSourceInfo?.is_live}
+            displayMessage={dataSourceInfo?.display_message}
+          />
         </div>
         {onNewSession && (
           <button
@@ -88,6 +107,7 @@ export function ChatInterface({ sessionId, initialMessages = [], onNewSession }:
               key={message.id}
               message={message}
               dataSource={message.role === 'assistant' ? dataSource : undefined}
+              isLiveData={message.role === 'assistant' ? dataSourceInfo?.is_live : undefined}
               onCitationClick={handleCitationClick}
             />
           ))

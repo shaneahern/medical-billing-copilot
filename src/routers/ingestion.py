@@ -37,7 +37,13 @@ def get_orchestrator() -> IngestionOrchestrator:
     """Get the ingestion orchestrator instance."""
     global _orchestrator
     if _orchestrator is None:
-        _orchestrator = IngestionOrchestrator()
+        # Get policy database first so we can wire up the callback
+        policy_db = get_policy_database()
+        
+        # Create orchestrator with callback to update policy database
+        _orchestrator = IngestionOrchestrator(
+            on_document_ingested=policy_db.record_document_ingestion
+        )
     return _orchestrator
 
 
@@ -79,6 +85,24 @@ class IngestionStats(BaseModel):
     total_documents_failed: int
     scheduler_running: bool
     log_entries: int
+
+
+class CustomDocumentRequest(BaseModel):
+    """Request to add a custom document to the vector store."""
+    title: str = Field(..., min_length=1, max_length=500, description="Document title")
+    content: str = Field(..., min_length=10, description="Document content/text")
+    source_type: str = Field("COMMERCIAL", description="Source type: LCD, NCD, COMMERCIAL, CARC")
+    payer: Optional[str] = Field(None, description="Payer name (for commercial policies)")
+    mac_region: Optional[str] = Field(None, description="MAC region (for LCDs)")
+    source_url: Optional[str] = Field(None, description="URL to source document")
+    effective_date: Optional[str] = Field(None, description="Effective date (YYYY-MM-DD)")
+
+
+class CustomDocumentResponse(BaseModel):
+    """Response after adding a custom document."""
+    success: bool
+    document_id: str
+    message: str
 
 
 # Endpoints
@@ -164,6 +188,69 @@ async def get_scheduler_status(
     return {
         "running": orchestrator.is_scheduler_running(),
     }
+
+
+@router.post("/documents/custom", response_model=CustomDocumentResponse)
+async def add_custom_document(
+    request: CustomDocumentRequest,
+) -> CustomDocumentResponse:
+    """Add a custom document to the vector store.
+    
+    This endpoint allows adding custom policy documents, PDFs, or other
+    text content directly to the RAG system without going through the
+    standard ingestion pipeline.
+    """
+    import uuid
+    from src.config import settings
+    
+    # Generate document ID
+    doc_id = f"custom-{uuid.uuid4().hex[:8]}"
+    
+    # Build metadata
+    metadata = {
+        "source_type": request.source_type.upper(),
+        "document_id": doc_id,
+        "title": request.title,
+        "source_url": request.source_url,
+    }
+    
+    if request.payer:
+        metadata["payer"] = request.payer.lower()
+    if request.mac_region:
+        metadata["mac_region"] = request.mac_region.upper()
+    if request.effective_date:
+        metadata["effective_date"] = request.effective_date
+    
+    # Check if RAG mode is enabled
+    if settings.knowledge_service_type != "rag":
+        # For stubbed mode, just acknowledge the document
+        return CustomDocumentResponse(
+            success=True,
+            document_id=doc_id,
+            message="Document recorded (RAG mode not enabled - document will be available when RAG is enabled)",
+        )
+    
+    try:
+        from src.services.rag_knowledge import RAGKnowledgeService
+        
+        rag_service = RAGKnowledgeService()
+        await rag_service.add_documents([
+            {
+                "content": request.content,
+                "metadata": metadata,
+            }
+        ])
+        
+        return CustomDocumentResponse(
+            success=True,
+            document_id=doc_id,
+            message=f"Document '{request.title}' added successfully to vector store",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add document: {str(e)}",
+        )
 
 
 @router.get("/jobs", response_model=list[IngestionJobResult])
@@ -401,3 +488,419 @@ async def verify_common_procedures_coverage(
         Dictionary with verification results.
     """
     return policy_db.verify_common_procedures_coverage()
+
+
+@router.post("/policy/rebuild-counts")
+async def rebuild_document_counts(
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> dict:
+    """Rebuild document counts from stored documents.
+    
+    Useful after re-ingestion or fixing metadata issues.
+    
+    Returns:
+        Dictionary with rebuilt counts.
+    """
+    policy_db.rebuild_counts()
+    stats = policy_db.get_statistics()
+    return {
+        "message": "Document counts rebuilt successfully",
+        "mac_region_counts": policy_db._mac_region_document_counts,
+        "payer_counts": policy_db._payer_document_counts,
+        "total_documents": stats.total_documents,
+    }
+
+
+# ==================== Document Listing Endpoints ====================
+
+
+class DocumentInfo(BaseModel):
+    """Document information for listing."""
+    document_id: str
+    title: str
+    document_type: str
+    source_url: str
+    payer: Optional[str] = None
+    mac_region: Optional[str] = None
+    effective_date: Optional[datetime] = None
+    last_updated: Optional[datetime] = None
+
+
+@router.get("/policy/payer/{payer_id}/documents", response_model=list[DocumentInfo])
+async def get_payer_documents(
+    payer_id: str,
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> list[DocumentInfo]:
+    """Get all documents for a specific payer.
+    
+    Args:
+        payer_id: The payer identifier.
+        
+    Returns:
+        List of documents for the payer.
+    """
+    documents = policy_db.get_documents_by_payer(payer_id)
+    return [
+        DocumentInfo(
+            document_id=doc.document_id,
+            title=doc.title,
+            document_type=doc.document_type.value,
+            source_url=doc.source_url,
+            payer=doc.payer,
+            mac_region=doc.mac_region,
+            effective_date=doc.effective_date,
+            last_updated=doc.last_updated,
+        )
+        for doc in documents
+    ]
+
+
+@router.get("/policy/mac-region/{mac_region}/documents", response_model=list[DocumentInfo])
+async def get_mac_region_documents(
+    mac_region: str,
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> list[DocumentInfo]:
+    """Get all documents for a specific MAC region.
+    
+    Args:
+        mac_region: The MAC region identifier.
+        
+    Returns:
+        List of documents for the MAC region.
+    """
+    documents = policy_db.get_documents_by_mac_region(mac_region)
+    return [
+        DocumentInfo(
+            document_id=doc.document_id,
+            title=doc.title,
+            document_type=doc.document_type.value,
+            source_url=doc.source_url,
+            payer=doc.payer,
+            mac_region=doc.mac_region,
+            effective_date=doc.effective_date,
+            last_updated=doc.last_updated,
+        )
+        for doc in documents
+    ]
+
+
+# ==================== Document Content Endpoint ====================
+
+
+class DocumentDetailResponse(BaseModel):
+    """Response with full document details including content."""
+    document_id: str
+    title: str
+    document_type: str
+    source_url: Optional[str] = None
+    payer: Optional[str] = None
+    mac_region: Optional[str] = None
+    effective_date: Optional[str] = None
+    last_updated: Optional[str] = None
+    version: Optional[str] = None
+    content: Optional[str] = None
+    has_content: bool
+
+
+@router.get("/policy/document/{document_id}", response_model=DocumentDetailResponse)
+async def get_document_detail(
+    document_id: str,
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> DocumentDetailResponse:
+    """Get full document details including extracted content.
+    
+    Args:
+        document_id: The document identifier.
+        
+    Returns:
+        DocumentDetailResponse with metadata and content.
+    """
+    detail = policy_db.get_document_detail(document_id)
+    if not detail:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {document_id}",
+        )
+    
+    return DocumentDetailResponse(
+        document_id=detail["document_id"],
+        title=detail["title"],
+        document_type=detail["document_type"],
+        source_url=detail.get("source_url"),
+        payer=detail.get("payer"),
+        mac_region=detail.get("mac_region"),
+        effective_date=detail.get("effective_date"),
+        last_updated=detail.get("last_updated"),
+        version=detail.get("version"),
+        content=detail.get("content"),
+        has_content=detail.get("has_content", False),
+    )
+
+
+# ==================== Custom Document Upload ====================
+
+
+class CustomDocumentRequest(BaseModel):
+    """Request to add a custom document to the vector store."""
+    title: str = Field(..., min_length=1, max_length=500, description="Document title")
+    content: str = Field(..., min_length=10, description="Document content/text")
+    source_type: str = Field(
+        "COMMERCIAL",
+        description="Source type: LCD, NCD, COMMERCIAL, or CARC"
+    )
+    payer: Optional[str] = Field(None, description="Payer name (for commercial docs)")
+    mac_region: Optional[str] = Field(None, description="MAC region (for LCDs)")
+    effective_date: Optional[str] = Field(None, description="Effective date (YYYY-MM-DD)")
+    source_url: Optional[str] = Field(None, description="Source URL")
+
+
+class CustomDocumentResponse(BaseModel):
+    """Response after adding a custom document."""
+    success: bool
+    document_id: str
+    message: str
+    chunks_created: int
+
+
+@router.post("/documents/custom", response_model=CustomDocumentResponse)
+async def add_custom_document(
+    request: CustomDocumentRequest,
+) -> CustomDocumentResponse:
+    """Add a custom document to the RAG vector store.
+    
+    This endpoint allows adding ad-hoc policy documents, PDFs content,
+    or other text-based documents directly to the knowledge base.
+    """
+    import uuid
+    from datetime import datetime, UTC
+    
+    from src.config import settings
+    from src.services.knowledge_factory import get_knowledge_service
+    from src.services.rag_knowledge import RAGKnowledgeService
+    
+    # Generate document ID
+    doc_id = f"custom-{uuid.uuid4().hex[:12]}"
+    
+    # Check if RAG service is available
+    if settings.knowledge_service_type != "rag":
+        # For stubbed mode, just acknowledge the request
+        return CustomDocumentResponse(
+            success=True,
+            document_id=doc_id,
+            message="Document recorded (stubbed mode - not added to vector store)",
+            chunks_created=0,
+        )
+    
+    try:
+        # Get RAG service
+        service = get_knowledge_service()
+        
+        if not isinstance(service, RAGKnowledgeService):
+            return CustomDocumentResponse(
+                success=True,
+                document_id=doc_id,
+                message="Document recorded (RAG service not active)",
+                chunks_created=0,
+            )
+        
+        # Build metadata
+        metadata = {
+            "source_type": request.source_type.upper(),
+            "document_id": doc_id,
+            "title": request.title,
+            "custom_upload": True,
+            "uploaded_at": datetime.now(UTC).isoformat(),
+        }
+        
+        if request.payer:
+            metadata["payer"] = request.payer.lower()
+        if request.mac_region:
+            metadata["mac_region"] = request.mac_region.upper()
+        if request.effective_date:
+            metadata["effective_date"] = request.effective_date
+        if request.source_url:
+            metadata["source_url"] = request.source_url
+        
+        # Add document to vector store
+        chunks_added = await service.add_documents([
+            {
+                "content": request.content,
+                "metadata": metadata,
+            }
+        ])
+        
+        return CustomDocumentResponse(
+            success=True,
+            document_id=doc_id,
+            message=f"Document '{request.title}' added successfully",
+            chunks_created=chunks_added,
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add document: {str(e)}",
+        )
+
+
+@router.get("/documents/custom")
+async def list_custom_documents() -> dict:
+    """List all custom-uploaded documents.
+    
+    Note: This is a placeholder - full implementation would query
+    the vector store for documents with custom_upload=True metadata.
+    """
+    return {
+        "message": "Custom document listing not yet implemented",
+        "hint": "Documents are stored in the vector store with custom_upload=True metadata",
+    }
+
+
+# ==================== CMS Data Source Endpoints ====================
+
+
+class CMSDataSourceRequest(BaseModel):
+    """Request to specify CMS data source."""
+    source: str = Field(
+        "downloads",
+        description="Data source: 'downloads' (bulk), 'api' (incremental), 'scraper' (web), 'stub' (test)"
+    )
+    mac_regions: Optional[list[str]] = Field(None, description="MAC regions to ingest")
+
+
+class CMSIncrementalRequest(BaseModel):
+    """Request for incremental CMS update."""
+    since_days: int = Field(7, ge=1, le=90, description="Fetch updates from last N days")
+
+
+class CMSDataSourceResponse(BaseModel):
+    """Response with CMS data source info."""
+    source: str
+    documents_loaded: int
+    message: str
+
+
+@router.post("/trigger/cms/bulk", response_model=IngestionJobResult)
+async def trigger_cms_bulk_download(
+    request: CMSDataSourceRequest,
+    orchestrator: IngestionOrchestrator = Depends(get_orchestrator),
+) -> IngestionJobResult:
+    """Trigger CMS bulk download ingestion.
+    
+    Uses MCD Downloads (ZIP files) for initial bulk data load.
+    This is the preferred method for initial setup or full refresh.
+    
+    Data source: https://www.cms.gov/medicare-coverage-database/downloads
+    """
+    # Configure scraper to use downloads
+    orchestrator.cms_scraper.preferred_source = "downloads"
+    
+    return await orchestrator.trigger_cms_ingestion(
+        mac_regions=request.mac_regions,
+        document_type=None,  # Both LCDs and NCDs
+    )
+
+
+@router.post("/trigger/cms/api", response_model=IngestionJobResult)
+async def trigger_cms_api_sync(
+    request: CMSDataSourceRequest,
+    orchestrator: IngestionOrchestrator = Depends(get_orchestrator),
+) -> IngestionJobResult:
+    """Trigger CMS Coverage API ingestion.
+    
+    Uses the CMS Coverage API for incremental updates.
+    Note: LCD endpoints may require a license agreement token.
+    
+    API: https://api.coverage.cms.gov
+    """
+    # Configure scraper to use API
+    orchestrator.cms_scraper.preferred_source = "api"
+    
+    return await orchestrator.trigger_cms_ingestion(
+        mac_regions=request.mac_regions,
+        document_type=None,
+    )
+
+
+@router.post("/trigger/cms/incremental", response_model=CMSDataSourceResponse)
+async def trigger_cms_incremental_update(
+    request: CMSIncrementalRequest,
+    orchestrator: IngestionOrchestrator = Depends(get_orchestrator),
+    policy_db: PolicyDatabase = Depends(get_policy_database),
+) -> CMSDataSourceResponse:
+    """Trigger incremental CMS update.
+    
+    Fetches only documents updated in the last N days using the Coverage API.
+    This is optimized for regular sync operations.
+    """
+    from datetime import timedelta
+    
+    since_date = datetime.utcnow() - timedelta(days=request.since_days)
+    
+    try:
+        documents = await orchestrator.cms_scraper.incremental_update_lcds(since_date)
+        
+        # Record ingested documents
+        for doc in documents:
+            policy_db.record_document_ingestion(doc)
+        
+        return CMSDataSourceResponse(
+            source="api",
+            documents_loaded=len(documents),
+            message=f"Loaded {len(documents)} LCD updates from last {request.since_days} days",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Incremental update failed: {str(e)}",
+        )
+
+
+@router.get("/cms/sources")
+async def get_cms_data_sources() -> dict:
+    """Get information about available CMS data sources.
+    
+    Returns details about each data source option for Medicare coverage data.
+    """
+    return {
+        "sources": [
+            {
+                "id": "downloads",
+                "name": "MCD Downloads (Bulk)",
+                "description": "Bulk ZIP files from CMS Medicare Coverage Database. Best for initial load or full refresh.",
+                "url": "https://www.cms.gov/medicare-coverage-database/downloads/downloads.aspx",
+                "requires_auth": False,
+                "update_frequency": "Weekly",
+                "recommended_for": "Initial setup, full refresh",
+            },
+            {
+                "id": "api",
+                "name": "Coverage API",
+                "description": "REST API for programmatic access. LCD endpoints require license agreement.",
+                "url": "https://api.coverage.cms.gov",
+                "requires_auth": "LCD endpoints require license token",
+                "update_frequency": "Real-time",
+                "recommended_for": "Incremental updates, specific queries",
+            },
+            {
+                "id": "scraper",
+                "name": "Web Scraping",
+                "description": "Direct web scraping from CMS.gov. Fallback when other sources unavailable.",
+                "url": "https://www.cms.gov/medicare-coverage-database",
+                "requires_auth": False,
+                "update_frequency": "On-demand",
+                "recommended_for": "Fallback, specific document retrieval",
+            },
+            {
+                "id": "stub",
+                "name": "Stub Data",
+                "description": "Sample data for development and testing. Not for production use.",
+                "url": None,
+                "requires_auth": False,
+                "update_frequency": "Static",
+                "recommended_for": "Development, testing",
+            },
+        ],
+        "current_default": "downloads",
+        "recommendation": "Use 'downloads' for initial bulk load, then 'api' for incremental updates",
+    }

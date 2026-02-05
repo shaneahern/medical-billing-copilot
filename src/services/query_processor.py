@@ -267,12 +267,60 @@ class QueryProcessor:
         self, query: str, context: dict
     ) -> tuple[str, list[Citation], float]:
         """Handle a coverage lookup query."""
-        cpt_code = self._extract_cpt_code(query) or context.get("previous_cpt_code")
+        cpt_code = self._extract_cpt_code(query)
         icd_codes = self._extract_icd_codes(query)
         payer = self._extract_payer(query) or context.get("previous_payer")
         mac_region = self._extract_mac_region(query) or context.get("previous_mac_region")
         
+        # Only use previous CPT code if this looks like a follow-up question
+        is_followup = any(phrase in query.lower() for phrase in [
+            "what about", "how about", "is it", "same for", "and for",
+            "that code", "this code", "the same", "also covered"
+        ])
+        if not cpt_code and is_followup:
+            cpt_code = context.get("previous_cpt_code")
+        
+        # If no CPT code, try free-form text search on the policy database
         if not cpt_code:
+            # Check if the knowledge service supports text search
+            if hasattr(self.knowledge_service, 'search_policies'):
+                search_results = await self.knowledge_service.search_policies(
+                    query=query,
+                    payer=payer,
+                    mac_region=mac_region,
+                    max_results=5,
+                )
+                
+                if search_results:
+                    # Build response from search results
+                    response = "I found the following relevant policies:\n\n"
+                    citations = []
+                    
+                    for i, result in enumerate(search_results[:3], 1):
+                        response += f"**{i}. {result['title']}**\n"
+                        response += f"   Type: {result['document_type']}"
+                        if result.get('payer'):
+                            response += f" | Payer: {result['payer']}"
+                        if result.get('mac_region'):
+                            response += f" | MAC: {result['mac_region']}"
+                        response += "\n"
+                        if result.get('snippet'):
+                            snippet = result['snippet'][:200] + "..." if len(result.get('snippet', '')) > 200 else result.get('snippet', '')
+                            response += f"   {snippet}\n"
+                        response += "\n"
+                        
+                        citations.append(
+                            Citation(
+                                source_type=result['document_type'],
+                                document_id=result['document_id'],
+                                document_title=result['title'],
+                                source_url=result.get('source_url'),
+                            )
+                        )
+                    
+                    response += "\nFor specific coverage details, please provide a CPT code (e.g., 'Is CPT 27447 covered?')."
+                    return response, citations, 0.7
+            
             return (
                 "I need a CPT code to look up coverage. Please provide a 5-digit CPT code.",
                 [],

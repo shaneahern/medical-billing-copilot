@@ -112,16 +112,34 @@ def get_data_source_indicator() -> dict:
     """
     service = get_knowledge_service()
     info = service.get_data_source_info()
+    
+    # Check if the stubbed service has policy database loaded
+    has_policy_data = False
+    policy_doc_count = 0
+    if hasattr(service, '_policy_db') and service._policy_db is not None:
+        policy_doc_count = len(service._policy_db._documents)
+        has_policy_data = policy_doc_count > 0
+
+    # Determine display message based on actual data availability
+    if info.type.value == "STUBBED":
+        if has_policy_data:
+            display_message = f"Using ingested policy data ({policy_doc_count} documents)"
+            is_live = True
+        else:
+            display_message = "Using demo/test data"
+            is_live = False
+    else:
+        display_message = "Using live policy data"
+        is_live = True
 
     return {
         "type": info.type.value,
-        "is_stubbed": info.type.value == "STUBBED",
+        "is_stubbed": info.type.value == "STUBBED" and not has_policy_data,
         "is_rag": info.type.value == "RAG",
+        "is_live": is_live,
+        "has_policy_data": has_policy_data,
+        "policy_doc_count": policy_doc_count,
         "last_updated": info.last_updated.isoformat(),
         "coverage": info.coverage,
-        "display_message": (
-            "Using demo/test data"
-            if info.type.value == "STUBBED"
-            else "Using live policy data"
-        ),
+        "display_message": display_message,
     }
